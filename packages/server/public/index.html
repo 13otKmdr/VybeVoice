@@ -3,80 +3,86 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Merlin</title>
+		<title>Merlin Voice Orchestrator</title>
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		
+		<!-- Architectural Editorial Fonts -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+		
 		<link rel="stylesheet" href="/styles.css" />
 	</head>
 	<body>
-		<div class="background-orb orb-a"></div>
-		<div class="background-orb orb-b"></div>
+		<div class="grain-overlay"></div>
 
 		<main class="app-shell">
-			<header class="topbar">
+			<header class="topbar section-border">
 				<div class="brand-block">
-					<p class="eyebrow">Merlin</p>
+					<p class="eyebrow">Merlin / Voice Orchestrator</p>
 					<h1>One thread. Voice when you want it.</h1>
 					<p class="subcopy">
-						Start talking, keep typing in the same conversation, and let the orchestration layer stay behind
-						the curtain.
+						Start talking, keep typing in the same conversation, and let the orchestration layer stay behind the curtain.
 					</p>
 				</div>
 
-				<div class="thread-status card">
-					<div class="status-pill idle" id="status-pill">Idle</div>
+				<div class="thread-status section-border-left">
+					<div class="status-indicator">
+						<div class="status-pill idle" id="status-pill">Idle</div>
+					</div>
 					<p class="status-copy" id="status-copy">Start voice or send a message to begin.</p>
-					<p class="session-meta" id="session-meta">No active thread</p>
+					<p class="session-meta" id="session-meta">NO ACTIVE THREAD</p>
 				</div>
 			</header>
 
-			<section class="thread-card card">
-				<div class="thread-header">
-					<div>
-						<h2>Thread</h2>
+			<div class="main-grid">
+				<aside class="sidebar section-border-right section-border-bottom">
+					<div class="thread-header">
+						<h2>Configuration</h2>
 						<p id="capability-copy">OpenAI Realtime keeps voice live in this thread. MiniMax stays text-only here.</p>
 					</div>
-
-					<details class="settings-panel">
-						<summary>Settings</summary>
+					<div class="settings-panel">
 						<div class="settings-grid">
 							<label>
-								<span>User ID</span>
+								<span>USER ID</span>
 								<input id="user-id" type="text" autocomplete="off" />
 							</label>
 							<label>
-								<span>Provider</span>
+								<span>PROVIDER</span>
 								<select id="provider">
 									<option value="openai" selected>OpenAI Realtime</option>
 									<option value="minimax">MiniMax</option>
 								</select>
 							</label>
 							<label>
-								<span>Model</span>
+								<span>MODEL</span>
 								<input id="model" type="text" value="gpt-realtime" autocomplete="off" />
 							</label>
 							<label>
-								<span>Voice</span>
+								<span>VOICE</span>
 								<input id="voice" type="text" value="marin" autocomplete="off" />
 							</label>
 							<label class="settings-wide">
-								<span>Additional instructions</span>
+								<span>ADDITIONAL INSTRUCTIONS</span>
 								<textarea
 									id="instructions"
-									rows="3"
+									rows="4"
 									placeholder="Optional: extra behavior, tone, or orchestration rules."
 								></textarea>
 							</label>
 						</div>
-					</details>
-				</div>
+					</div>
+				</aside>
 
-				<div id="transcript" class="thread-stream empty">
-					<p class="empty-state">This thread is empty. Start voice or type a message.</p>
-				</div>
-			</section>
+				<section class="thread-section section-border-bottom">
+					<div id="transcript" class="thread-stream empty">
+						<p class="empty-state">Thread is empty. Initiate sequence.</p>
+					</div>
+				</section>
+			</div>
 
-			<section class="composer-card card">
-				<div class="action-row">
+			<footer class="composer-section">
+				<div class="action-row section-border-right">
 					<button id="start-session" class="primary">Start voice</button>
 					<button id="interrupt-response" class="secondary" disabled>Stop reply</button>
 					<button id="stop-session" class="ghost" disabled>End chat</button>
@@ -85,12 +91,12 @@
 				<div class="composer-row">
 					<textarea
 						id="text-message"
-						rows="3"
-						placeholder="Message Merlin. If there isn't an active thread yet, sending this will create one."
+						rows="1"
+						placeholder="Message Merlin..."
 					></textarea>
-					<button id="send-text" class="primary">Send</button>
+					<button id="send-text" class="primary-text">Submit <span>&rarr;</span></button>
 				</div>
-			</section>
+			</footer>
 		</main>
 
 		<script type="module" src="/app.js"></script>

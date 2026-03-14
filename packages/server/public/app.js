@@ -116,7 +116,16 @@ async function startSession({ activateVoice = true } = {}) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(payload),
 		});
-		const data = await response.json();
+		
+		let data = {};
+		try {
+			data = await response.json();
+		} catch (e) {
+			if (!response.ok) {
+				throw new Error("Failed connecting to server.");
+			}
+		}
+		
 		if (!response.ok) {
 			throw new Error(data.error || "Failed to create session.");
 		}
@@ -213,7 +222,16 @@ async function sendTypedMessage() {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ text }),
 		});
-		const data = await response.json();
+		
+		let data = {};
+		try {
+			data = await response.json();
+		} catch (e) {
+			if (!response.ok) {
+				throw new Error("Failed connecting to server.");
+			}
+		}
+		
 		if (!response.ok) {
 			throw new Error(data.error || "Failed to send message.");
 		}
