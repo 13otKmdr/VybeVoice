@@ -6,6 +6,8 @@ import {
 	FileTaskStore,
 } from "@voice-orchestrator/core";
 import { resolve } from "path";
+import { BuilderSpecialist } from "./specialists/builder.js";
+import { TaskManager } from "./task-manager.js";
 
 export interface OrchestratorContext {
 	dataDir: string;
@@ -14,6 +16,7 @@ export interface OrchestratorContext {
 	artifactStore: FileArtifactStore;
 	summaryStore: FileSummaryStore;
 	eventLog: FileEventLog;
+	taskManager?: TaskManager;
 }
 
 export function createContext(dataDir: string): OrchestratorContext {
@@ -34,8 +37,21 @@ async function main(): Promise<void> {
 
 	// Subscribe to all events for logging
 	ctx.eventLog.subscribe((event) => {
-		console.log(`[event] ${event.type}`, JSON.stringify(event));
+		// console.log(`[event] ${event.type}`, JSON.stringify(event));
 	});
+
+	// Instantiate capabilities
+	const builderSpecialist = new BuilderSpecialist();
+	
+	const taskManager = new TaskManager({
+		taskStore: ctx.taskStore,
+		eventLog: ctx.eventLog,
+		specialists: [builderSpecialist],
+		pollIntervalMs: 2000
+	});
+
+	ctx.taskManager = taskManager;
+	taskManager.start();
 
 	// Dynamic import to avoid circular dependency
 	const { createHttpServer } = await import("./http.js");

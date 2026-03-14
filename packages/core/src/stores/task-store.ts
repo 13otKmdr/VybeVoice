@@ -7,6 +7,7 @@ export interface TaskStore {
 	get(id: string): Promise<TaskRecord | null>;
 	save(task: TaskRecord): Promise<void>;
 	findBySession(sessionId: string): Promise<TaskRecord[]>;
+	findPending(): Promise<TaskRecord[]>;
 	updateStatus(id: string, status: TaskStatus): Promise<TaskRecord | null>;
 }
 
@@ -38,6 +39,19 @@ export class FileTaskStore implements TaskStore {
 		for (const file of files) {
 			const task = JSON.parse(readFileSync(join(this.dir, file), "utf-8")) as TaskRecord;
 			if (task.sessionId === sessionId) {
+				tasks.push(task);
+			}
+		}
+		return tasks.sort((a, b) => a.createdAt - b.createdAt);
+	}
+
+	async findPending(): Promise<TaskRecord[]> {
+		if (!existsSync(this.dir)) return [];
+		const files = readdirSync(this.dir).filter((f) => f.endsWith(".json"));
+		const tasks: TaskRecord[] = [];
+		for (const file of files) {
+			const task = JSON.parse(readFileSync(join(this.dir, file), "utf-8")) as TaskRecord;
+			if (task.status === "queued" || task.status === "starting" || task.status === "running") {
 				tasks.push(task);
 			}
 		}
