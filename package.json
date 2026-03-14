@@ -1,0 +1,26 @@
+{
+	"name": "voice-orchestrator",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"clean": "npm run clean --workspaces",
+		"build": "cd packages/core && npm run build && cd ../realtime && npm run build && cd ../server && npm run build",
+		"dev": "concurrently --names \"core,realtime,server\" --prefix-colors \"cyan,yellow,green\" \"cd packages/core && npm run dev\" \"cd packages/realtime && npm run dev\" \"cd packages/server && npm run dev\"",
+		"check": "biome check --write --error-on-warnings . && tsgo --noEmit",
+		"start": "node packages/server/dist/main.js"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.5",
+		"@types/node": "^22.10.5",
+		"@typescript/native-preview": "7.0.0-dev.20260120.1",
+		"concurrently": "^9.2.1",
+		"tsx": "^4.20.3",
+		"typescript": "^5.9.2"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}

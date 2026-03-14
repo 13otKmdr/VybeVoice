@@ -1,0 +1,27 @@
+{
+	"name": "@voice-orchestrator/server",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"bin": {
+		"voice-orchestrator": "./dist/main.js"
+	},
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"start": "node dist/main.js"
+	},
+	"dependencies": {
+		"@voice-orchestrator/core": "*",
+		"@voice-orchestrator/realtime": "*"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.2"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}

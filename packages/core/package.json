@@ -1,0 +1,16 @@
+{
+	"name": "@voice-orchestrator/core",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}
