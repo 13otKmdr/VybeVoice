@@ -41,9 +41,12 @@ async function main(): Promise<void> {
 	const { createHttpServer } = await import("./http.js");
 	createHttpServer(ctx, port);
 
-	console.log("Voice Orchestrator v2 — Phase 2: Realtime Hot Path");
+	const provider = process.env.MINIMAX_API_KEY ? "minimax" : process.env.OPENAI_API_KEY ? "openai" : "none";
+	console.log("Voice Orchestrator v2 — MiniMax + OpenAI Transport");
 	console.log(`  Data directory: ${dataDir}`);
-	console.log(`  API key: ${process.env.OPENAI_API_KEY ? "set" : "NOT SET"}`);
+	console.log(`  Voice provider: ${provider}`);
+	console.log(`  MINIMAX_API_KEY: ${process.env.MINIMAX_API_KEY ? "set" : "NOT SET"}`);
+	console.log(`  OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "set" : "NOT SET"}`);
 }
 
 main().catch((err) => {

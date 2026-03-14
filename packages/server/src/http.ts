@@ -1,13 +1,38 @@
-import { OpenAIWebSocketTransport } from "@voice-orchestrator/realtime";
+import {
+	MiniMaxCompositeTransport,
+	OpenAIWebSocketTransport,
+	type RealtimeTransport,
+} from "@voice-orchestrator/realtime";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import type { OrchestratorContext } from "./main.js";
 import { MerlinOrchestrator } from "./orchestrator.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type VoiceProvider = "minimax" | "openai";
+
 interface ActiveSession {
 	orchestrator: MerlinOrchestrator;
-	transport: OpenAIWebSocketTransport;
+	transport: RealtimeTransport;
+}
+
+function resolveProvider(): { provider: VoiceProvider; apiKey: string } {
+	const minimaxKey = process.env.MINIMAX_API_KEY;
+	if (minimaxKey) return { provider: "minimax", apiKey: minimaxKey };
+
+	const openaiKey = process.env.OPENAI_API_KEY;
+	if (openaiKey) return { provider: "openai", apiKey: openaiKey };
+
+	throw new Error("No API key set. Provide MINIMAX_API_KEY or OPENAI_API_KEY.");
+}
+
+function createTransport(provider: VoiceProvider): RealtimeTransport {
+	switch (provider) {
+		case "minimax":
+			return new MiniMaxCompositeTransport();
+		case "openai":
+			return new OpenAIWebSocketTransport();
+	}
 }
 
 // ── Server ───────────────────────────────────────────────────────────────────
@@ -84,25 +109,32 @@ async function handleCreateSession(
 		return sendJson(res, 400, { error: "userId is required" });
 	}
 
-	const apiKey = process.env.OPENAI_API_KEY;
-	if (!apiKey) {
-		return sendJson(res, 500, { error: "OPENAI_API_KEY environment variable is not set" });
+	let resolved: { provider: VoiceProvider; apiKey: string };
+	try {
+		resolved = resolveProvider();
+	} catch (err) {
+		return sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
 	}
 
-	const transport = new OpenAIWebSocketTransport();
+	const transport = createTransport(resolved.provider);
 	const orchestrator = new MerlinOrchestrator(transport, ctx);
+
+	// Default model per provider
+	const defaultModel = resolved.provider === "minimax" ? "MiniMax-M2.5" : "gpt-4o-realtime-preview";
 
 	try {
 		const session = await orchestrator.startSession({
 			userId: body.userId,
-			model: body.model,
+			model: body.model ?? defaultModel,
 			voice: body.voice,
 			instructions: body.instructions,
+			apiKey: resolved.apiKey,
 		});
 
 		sessions.set(session.id, { orchestrator, transport });
 
-		sendJson(res, 201, { session });
+		console.log(`[http] Session created: ${session.id} (provider: ${resolved.provider})`);
+		sendJson(res, 201, { session, provider: resolved.provider });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		console.error("[http] Failed to create session:", message);

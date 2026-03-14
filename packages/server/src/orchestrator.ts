@@ -16,6 +16,7 @@ export interface SessionOptions {
 	model?: string;
 	voice?: string;
 	instructions?: string;
+	apiKey?: string;
 }
 
 // ── Orchestrator ─────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export class MerlinOrchestrator {
 
 		const config: RealtimeConfig = {
 			model: options.model ?? "gpt-4o-realtime-preview",
-			apiKey: process.env.OPENAI_API_KEY ?? "",
+			apiKey: options.apiKey ?? process.env.MINIMAX_API_KEY ?? process.env.OPENAI_API_KEY ?? "",
 			instructions,
 			voice: options.voice ?? "alloy",
 			turnDetection: {
