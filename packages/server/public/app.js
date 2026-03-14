@@ -34,9 +34,62 @@ const elements = {
 	transcript: document.querySelector("#transcript"),
 	userId: document.querySelector("#user-id"),
 	voice: document.querySelector("#voice"),
+	sidebar: document.querySelector("#sidebar"),
+	sidebarToggle: document.querySelector("#sidebar-toggle"),
+	sidebarOpenBtn: document.querySelector("#sidebar-open-btn"),
+	newChatBtn: document.querySelector("#new-chat-btn"),
 };
 
 elements.userId.value = `browser-${Math.random().toString(36).slice(2, 8)}`;
+
+// ── Sidebar toggle ──────────────────────────────────────────────────────
+
+elements.sidebarToggle.addEventListener("click", () => {
+	toggleSidebar();
+});
+
+elements.sidebarOpenBtn.addEventListener("click", () => {
+	toggleSidebar();
+});
+
+function toggleSidebar() {
+	const sidebar = elements.sidebar;
+	const openBtn = elements.sidebarOpenBtn;
+	sidebar.classList.toggle("collapsed");
+	if (sidebar.classList.contains("collapsed")) {
+		openBtn.classList.remove("hidden");
+	} else {
+		openBtn.classList.add("hidden");
+	}
+}
+
+// ── New chat button ─────────────────────────────────────────────────────
+
+elements.newChatBtn.addEventListener("click", () => {
+	if (state.sessionId) {
+		void stopSession();
+	}
+});
+
+// ── Auto-resize textarea ────────────────────────────────────────────────
+
+elements.textMessage.addEventListener("input", () => {
+	autoResizeTextarea();
+	updateSendButton();
+});
+
+function autoResizeTextarea() {
+	const textarea = elements.textMessage;
+	textarea.style.height = "auto";
+	textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
+}
+
+function updateSendButton() {
+	const hasText = elements.textMessage.value.trim().length > 0;
+	elements.sendText.disabled = !hasText;
+}
+
+// ── Provider change ─────────────────────────────────────────────────────
 
 elements.provider.addEventListener("change", () => {
 	const provider = elements.provider.value;
@@ -48,6 +101,8 @@ elements.provider.addEventListener("change", () => {
 	renderCapabilityCopy();
 	syncControls();
 });
+
+// ── Button events ───────────────────────────────────────────────────────
 
 elements.startSession.addEventListener("click", () => {
 	void startSession({ activateVoice: true });
@@ -84,6 +139,9 @@ renderCapabilityCopy();
 setStatus("Idle", "idle");
 renderThread();
 syncControls();
+updateSendButton();
+
+// ── Session management ──────────────────────────────────────────────────
 
 async function startSession({ activateVoice = true } = {}) {
 	if (state.sessionId) {
@@ -107,7 +165,7 @@ async function startSession({ activateVoice = true } = {}) {
 		instructions: elements.instructions.value.trim() || undefined,
 	};
 
-	setStatus("Starting thread...", "busy");
+	setStatus("Starting session...", "busy");
 	syncControls();
 
 	try {
@@ -142,7 +200,7 @@ async function startSession({ activateVoice = true } = {}) {
 		if (activateVoice) {
 			await ensureVoiceLive();
 		} else {
-			setStatus("Thread ready. Type now or start voice whenever you want.", "ready");
+			setStatus("Session ready. Type or start voice.", "ready");
 		}
 	} catch (error) {
 		console.error(error);
@@ -161,28 +219,28 @@ async function ensureVoiceLive() {
 	if (!state.sessionId) return;
 
 	if (state.provider !== "openai") {
-		setStatus("This provider is text-only in the browser right now.", "warning");
+		setStatus("This provider is text-only in the browser.", "warning");
 		return;
 	}
 
 	if (state.audioContext) {
-		setStatus("Listening continuously. Speak naturally.", "ready");
+		setStatus("Listening. Speak naturally.", "ready");
 		return;
 	}
 
 	try {
 		await ensureAudioPipeline();
-		setStatus("Listening continuously. Speak naturally.", "ready");
+		setStatus("Listening. Speak naturally.", "ready");
 	} catch (error) {
 		console.warn("Microphone unavailable; staying in typed mode.", error);
-		setStatus("Thread is live, but mic access failed. Keep typing or retry voice.", "warning");
+		setStatus("Mic access failed. Keep typing or retry.", "warning");
 	}
 }
 
 async function stopSession() {
 	if (!state.sessionId) return;
 
-	setStatus("Ending chat...", "busy");
+	setStatus("Ending session...", "busy");
 
 	const sessionId = state.sessionId;
 	await teardownSession(false);
@@ -195,7 +253,7 @@ async function stopSession() {
 
 	state.provider = elements.provider.value;
 	renderCapabilityCopy();
-	setStatus("Chat ended.", "idle");
+	setStatus("Session ended.", "idle");
 }
 
 async function sendTypedMessage() {
@@ -208,6 +266,8 @@ async function sendTypedMessage() {
 	}
 
 	elements.textMessage.value = "";
+	autoResizeTextarea();
+	updateSendButton();
 	appendMessage("user", text);
 	setStatus("Thinking...", "busy");
 
@@ -241,6 +301,8 @@ async function sendTypedMessage() {
 	}
 }
 
+// ── WebSocket ───────────────────────────────────────────────────────────
+
 async function connectSessionSocket() {
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 	const url = `${protocol}//${window.location.host}/sessions/${state.sessionId}/socket`;
@@ -250,7 +312,7 @@ async function connectSessionSocket() {
 		state.socket = socket;
 
 		socket.addEventListener("open", () => resolve());
-		socket.addEventListener("error", () => reject(new Error("Failed to open the session socket.")), { once: true });
+		socket.addEventListener("error", () => reject(new Error("Failed to open socket.")), { once: true });
 		socket.addEventListener("message", (event) => {
 			handleSocketMessage(event.data);
 		});
@@ -259,7 +321,7 @@ async function connectSessionSocket() {
 				state.socket = null;
 				syncControls();
 				if (state.sessionId && event.code !== 1000) {
-					setStatus("Thread connection closed unexpectedly.", "warning");
+					setStatus("Connection closed unexpectedly.", "warning");
 				}
 			}
 		});
@@ -267,6 +329,8 @@ async function connectSessionSocket() {
 
 	syncControls();
 }
+
+// ── Audio pipeline ──────────────────────────────────────────────────────
 
 async function ensureAudioPipeline() {
 	if (state.audioContext) return;
@@ -325,23 +389,17 @@ async function teardownSession(preserveSessionId) {
 	}
 
 	if (state.micNode) {
-		try {
-			state.micNode.disconnect();
-		} catch {}
+		try { state.micNode.disconnect(); } catch {}
 		state.micNode = null;
 	}
 
 	if (state.micSource) {
-		try {
-			state.micSource.disconnect();
-		} catch {}
+		try { state.micSource.disconnect(); } catch {}
 		state.micSource = null;
 	}
 
 	if (state.silentGain) {
-		try {
-			state.silentGain.disconnect();
-		} catch {}
+		try { state.silentGain.disconnect(); } catch {}
 		state.silentGain = null;
 	}
 
@@ -353,9 +411,7 @@ async function teardownSession(preserveSessionId) {
 	}
 
 	if (state.audioContext) {
-		try {
-			await state.audioContext.close();
-		} catch {}
+		try { await state.audioContext.close(); } catch {}
 		state.audioContext = null;
 	}
 
@@ -369,6 +425,8 @@ async function teardownSession(preserveSessionId) {
 	renderCapabilityCopy();
 	syncControls();
 }
+
+// ── Message handling ────────────────────────────────────────────────────
 
 function handleSocketMessage(raw) {
 	let message;
@@ -439,7 +497,7 @@ function handleRealtimeEvent(event) {
 
 		case "response.audio.done":
 			if (state.sessionId) {
-				setStatus(state.audioContext ? "Listening continuously. Speak naturally." : "Thread ready.", "ready");
+				setStatus(state.audioContext ? "Listening. Speak naturally." : "Session ready.", "ready");
 			}
 			return;
 
@@ -456,7 +514,7 @@ function handleRealtimeEvent(event) {
 			return;
 
 		case "connection.closed":
-			setStatus("The realtime transport closed.", "warning");
+			setStatus("Transport closed.", "warning");
 			return;
 	}
 }
@@ -514,7 +572,7 @@ function handleDomainEvent(event) {
 		case "session.ended":
 			if (event.sessionId === state.sessionId) {
 				void teardownSession(false).then(() => {
-					setStatus(`Chat ended (${event.reason}).`, event.reason === "error" ? "error" : "idle");
+					setStatus(`Session ended (${event.reason}).`, event.reason === "error" ? "error" : "idle");
 				});
 			}
 			return;
@@ -528,6 +586,8 @@ function handleDomainEvent(event) {
 			return;
 	}
 }
+
+// ── Message state ───────────────────────────────────────────────────────
 
 function appendMessage(role, text, { markRecent = true } = {}) {
 	const content = text.trim();
@@ -600,6 +660,8 @@ function markAssistantDraftInterrupted() {
 	renderThread();
 }
 
+// ── Rendering ───────────────────────────────────────────────────────────
+
 function renderThread() {
 	elements.transcript.innerHTML = "";
 
@@ -607,33 +669,49 @@ function renderThread() {
 	const hasTasks = state.tasks.size > 0;
 
 	if (!hasMessages && !hasTasks) {
-		elements.transcript.classList.add("empty");
-		const empty = document.createElement("p");
+		const empty = document.createElement("div");
 		empty.className = "empty-state";
-		empty.textContent = "This thread is empty. Start voice or type a message.";
+		empty.innerHTML = `
+			<div class="empty-icon">
+				<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a10 10 0 0 1-9.49-6.82"/>
+					<circle cx="12" cy="12" r="1"/>
+					<path d="M2 12h4M12 2v4M18 12h4M12 18v4"/>
+				</svg>
+			</div>
+			<h2>How can I help you today?</h2>
+			<p>Start a voice session or type a message below.</p>
+		`;
 		elements.transcript.append(empty);
 		return;
 	}
 
-	elements.transcript.classList.remove("empty");
-
 	for (const message of state.messages) {
-		const article = document.createElement("article");
-		article.className = `thread-item ${message.role}`;
+		const row = document.createElement("div");
+		row.className = `message-row ${message.role}`;
 		if (message.partial) {
-			article.classList.add("partial");
+			row.classList.add("partial");
 		}
 
-		const label = document.createElement("p");
-		label.className = "thread-role";
-		label.textContent = message.role === "assistant" ? "Merlin" : "You";
+		const header = document.createElement("div");
+		header.className = "message-header";
+
+		const avatar = document.createElement("div");
+		avatar.className = `message-avatar ${message.role}`;
+		avatar.textContent = message.role === "assistant" ? "M" : "Y";
+
+		const roleLabel = document.createElement("span");
+		roleLabel.className = "message-role";
+		roleLabel.textContent = message.role === "assistant" ? "Merlin" : "You";
+
+		header.append(avatar, roleLabel);
 
 		const body = document.createElement("p");
-		body.className = "thread-body";
+		body.className = "message-body";
 		body.textContent = message.text;
 
-		article.append(label, body);
-		elements.transcript.append(article);
+		row.append(header, body);
+		elements.transcript.append(row);
 	}
 
 	if (hasTasks) {
@@ -677,24 +755,24 @@ function renderThread() {
 
 function renderSessionMeta() {
 	if (!state.sessionId) {
-		elements.sessionMeta.textContent = "No active thread";
+		elements.sessionMeta.textContent = "Merlin";
 		return;
 	}
 
-	elements.sessionMeta.textContent = `${state.provider} thread - ${state.sessionId}`;
+	elements.sessionMeta.textContent = `Merlin · ${state.provider}`;
 }
 
 function renderCapabilityCopy() {
 	const provider = state.sessionId ? state.provider : elements.provider.value;
 	if (provider === "openai") {
 		elements.capabilityCopy.textContent = state.audioContext
-			? "Voice is live. Keep talking or keep typing in this same thread."
-			: "OpenAI Realtime supports continuous voice in this thread.";
+			? "Voice is live. Keep talking or typing."
+			: "OpenAI Realtime supports continuous voice.";
 		return;
 	}
 
 	elements.capabilityCopy.textContent =
-		"MiniMax is text-only in the browser right now. The orchestration layer still stays in the same thread.";
+		"MiniMax is text-only in the browser.";
 }
 
 function setStatus(text, tone) {
@@ -709,18 +787,24 @@ function syncControls() {
 	const voiceActive = Boolean(state.audioContext);
 	const provider = connected ? state.provider : elements.provider.value;
 
+	// Voice button state
+	const voiceBtn = elements.startSession;
 	if (!connected) {
-		elements.startSession.textContent = "Start voice";
-		elements.startSession.disabled = false;
+		voiceBtn.disabled = false;
+		voiceBtn.classList.remove("voice-active");
+		voiceBtn.title = "Start voice";
 	} else if (provider !== "openai") {
-		elements.startSession.textContent = "Text only";
-		elements.startSession.disabled = true;
+		voiceBtn.disabled = true;
+		voiceBtn.classList.remove("voice-active");
+		voiceBtn.title = "Text only";
 	} else if (voiceActive) {
-		elements.startSession.textContent = "Voice live";
-		elements.startSession.disabled = true;
+		voiceBtn.disabled = true;
+		voiceBtn.classList.add("voice-active");
+		voiceBtn.title = "Voice is live";
 	} else {
-		elements.startSession.textContent = "Enable voice";
-		elements.startSession.disabled = false;
+		voiceBtn.disabled = false;
+		voiceBtn.classList.remove("voice-active");
+		voiceBtn.title = "Enable voice";
 	}
 
 	elements.stopSession.disabled = !connected;
@@ -731,6 +815,8 @@ function syncControls() {
 	elements.voice.disabled = connected;
 	elements.instructions.disabled = connected;
 }
+
+// ── Audio utilities ─────────────────────────────────────────────────────
 
 function sendSocketMessage(message) {
 	if (state.socket?.readyState !== WebSocket.OPEN) return;
@@ -770,9 +856,7 @@ function clearPlayback() {
 	}
 
 	for (const source of state.activeSources) {
-		try {
-			source.stop();
-		} catch {}
+		try { source.stop(); } catch {}
 	}
 
 	state.activeSources.clear();

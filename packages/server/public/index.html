@@ -6,98 +6,140 @@
 		<title>Merlin Voice Orchestrator</title>
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		
-		<!-- Architectural Editorial Fonts -->
+		<!-- Clean modern font stack -->
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 		
 		<link rel="stylesheet" href="/styles.css" />
 	</head>
 	<body>
-		<div class="grain-overlay"></div>
-
-		<main class="app-shell">
-			<header class="topbar section-border">
-				<div class="brand-block">
-					<p class="eyebrow">Merlin / Voice Orchestrator</p>
-					<h1>One thread. Voice when you want it.</h1>
-					<p class="subcopy">
-						Start talking, keep typing in the same conversation, and let the orchestration layer stay behind the curtain.
-					</p>
+		<div class="app-layout">
+			<!-- ─── Sidebar ─── -->
+			<aside class="sidebar" id="sidebar">
+				<div class="sidebar-header">
+					<button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="3" y="3" width="18" height="18" rx="2"/>
+							<line x1="9" y1="3" x2="9" y2="21"/>
+						</svg>
+					</button>
+					<button class="new-chat-btn" id="new-chat-btn">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M12 5v14M5 12h14"/>
+						</svg>
+						New chat
+					</button>
 				</div>
 
-				<div class="thread-status section-border-left">
-					<div class="status-indicator">
+				<div class="sidebar-section">
+					<p class="sidebar-label">Configuration</p>
+					<div class="sidebar-fields">
+						<label class="field">
+							<span class="field-label">Provider</span>
+							<select id="provider">
+								<option value="openai" selected>OpenAI Realtime</option>
+								<option value="minimax">MiniMax</option>
+							</select>
+						</label>
+						<label class="field">
+							<span class="field-label">Model</span>
+							<input id="model" type="text" value="gpt-realtime" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span class="field-label">Voice</span>
+							<input id="voice" type="text" value="marin" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span class="field-label">User ID</span>
+							<input id="user-id" type="text" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span class="field-label">Instructions</span>
+							<textarea
+								id="instructions"
+								rows="3"
+								placeholder="Optional system instructions..."
+							></textarea>
+						</label>
+					</div>
+				</div>
+
+				<div class="sidebar-footer">
+					<p class="sidebar-status" id="capability-copy">OpenAI Realtime supports continuous voice.</p>
+				</div>
+			</aside>
+
+			<!-- ─── Sidebar collapsed toggle (shown when sidebar is hidden) ─── -->
+			<button class="sidebar-open-btn hidden" id="sidebar-open-btn" aria-label="Open sidebar">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<rect x="3" y="3" width="18" height="18" rx="2"/>
+					<line x1="9" y1="3" x2="9" y2="21"/>
+				</svg>
+			</button>
+
+			<!-- ─── Main chat area ─── -->
+			<main class="chat-main">
+				<!-- Top bar -->
+				<header class="chat-header">
+					<div class="chat-header-left">
+						<span class="model-label" id="session-meta">Merlin</span>
+					</div>
+					<div class="chat-header-right">
 						<div class="status-pill idle" id="status-pill">Idle</div>
+						<p class="status-text" id="status-copy">Start voice or send a message to begin.</p>
 					</div>
-					<p class="status-copy" id="status-copy">Start voice or send a message to begin.</p>
-					<p class="session-meta" id="session-meta">NO ACTIVE THREAD</p>
-				</div>
-			</header>
+				</header>
 
-			<div class="main-grid">
-				<aside class="sidebar section-border-right section-border-bottom">
-					<div class="thread-header">
-						<h2>Configuration</h2>
-						<p id="capability-copy">OpenAI Realtime keeps voice live in this thread. MiniMax stays text-only here.</p>
+				<!-- Messages -->
+				<div class="chat-messages" id="transcript">
+					<div class="empty-state">
+						<div class="empty-icon">
+							<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a10 10 0 0 1-9.49-6.82"/>
+								<circle cx="12" cy="12" r="1"/>
+								<path d="M2 12h4M12 2v4M18 12h4M12 18v4"/>
+							</svg>
+						</div>
+						<h2>How can I help you today?</h2>
+						<p>Start a voice session or type a message below.</p>
 					</div>
-					<div class="settings-panel">
-						<div class="settings-grid">
-							<label>
-								<span>USER ID</span>
-								<input id="user-id" type="text" autocomplete="off" />
-							</label>
-							<label>
-								<span>PROVIDER</span>
-								<select id="provider">
-									<option value="openai" selected>OpenAI Realtime</option>
-									<option value="minimax">MiniMax</option>
-								</select>
-							</label>
-							<label>
-								<span>MODEL</span>
-								<input id="model" type="text" value="gpt-realtime" autocomplete="off" />
-							</label>
-							<label>
-								<span>VOICE</span>
-								<input id="voice" type="text" value="marin" autocomplete="off" />
-							</label>
-							<label class="settings-wide">
-								<span>ADDITIONAL INSTRUCTIONS</span>
-								<textarea
-									id="instructions"
-									rows="4"
-									placeholder="Optional: extra behavior, tone, or orchestration rules."
-								></textarea>
-							</label>
+				</div>
+
+				<!-- Composer -->
+				<div class="composer-wrapper">
+					<div class="composer">
+						<div class="composer-actions-left">
+							<button id="start-session" class="composer-action-btn voice-btn" title="Start voice">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+									<path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+									<line x1="12" y1="19" x2="12" y2="22"/>
+								</svg>
+							</button>
+						</div>
+						<textarea
+							id="text-message"
+							rows="1"
+							placeholder="Message Merlin..."
+						></textarea>
+						<div class="composer-actions-right">
+							<button id="send-text" class="send-btn" disabled title="Send message">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<line x1="12" y1="19" x2="12" y2="5"/>
+									<polyline points="5 12 12 5 19 12"/>
+								</svg>
+							</button>
 						</div>
 					</div>
-				</aside>
-
-				<section class="thread-section section-border-bottom">
-					<div id="transcript" class="thread-stream empty">
-						<p class="empty-state">Thread is empty. Initiate sequence.</p>
+					<div class="composer-meta">
+						<button id="interrupt-response" class="meta-action" disabled>Stop response</button>
+						<span class="separator">·</span>
+						<button id="stop-session" class="meta-action" disabled>End session</button>
 					</div>
-				</section>
-			</div>
-
-			<footer class="composer-section">
-				<div class="action-row section-border-right">
-					<button id="start-session" class="primary">Start voice</button>
-					<button id="interrupt-response" class="secondary" disabled>Stop reply</button>
-					<button id="stop-session" class="ghost" disabled>End chat</button>
 				</div>
-
-				<div class="composer-row">
-					<textarea
-						id="text-message"
-						rows="1"
-						placeholder="Message Merlin..."
-					></textarea>
-					<button id="send-text" class="primary-text">Submit <span>&rarr;</span></button>
-				</div>
-			</footer>
-		</main>
+			</main>
+		</div>
 
 		<script type="module" src="/app.js"></script>
 	</body>
