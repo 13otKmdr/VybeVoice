@@ -12,10 +12,11 @@ export interface RealtimeConfig {
 }
 
 export interface TurnDetectionConfig {
-	type: "server_vad";
+	type: "server_vad" | "semantic_vad" | "none";
 	threshold?: number;
 	prefix_padding_ms?: number;
 	silence_duration_ms?: number;
+	eagerness?: "low" | "medium" | "high";
 }
 
 export interface RealtimeTool {
@@ -40,7 +41,7 @@ export type RealtimeEvent =
 	| { type: "response.text.done"; text: string }
 	| { type: "response.function_call_arguments.delta"; callId: string; name: string; delta: string }
 	| { type: "response.function_call_arguments.done"; callId: string; name: string; arguments: string }
-	| { type: "response.done" }
+	| { type: "response.done"; responseId?: string; status?: "completed" | "cancelled" | "failed" }
 	| { type: "error"; code: string; message: string }
 	| { type: "connection.closed"; code: number; reason: string };
 

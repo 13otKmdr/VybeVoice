@@ -29,6 +29,7 @@ export function createContext(dataDir: string): OrchestratorContext {
 
 async function main(): Promise<void> {
 	const dataDir = resolve(process.env.DATA_DIR || "./data");
+	const port = Number.parseInt(process.env.PORT || "3000", 10);
 	const ctx = createContext(dataDir);
 
 	// Subscribe to all events for logging
@@ -36,16 +37,13 @@ async function main(): Promise<void> {
 		console.log(`[event] ${event.type}`, JSON.stringify(event));
 	});
 
-	console.log("Voice Orchestrator v2 started");
-	console.log(`  Data directory: ${dataDir}`);
-	console.log(`  Stores: sessions, tasks, artifacts, summaries, events`);
-	console.log();
-	console.log("Phase 1 complete — core domain, stores, and transport ready.");
-	console.log("Phase 2 will add: Merlin orchestrator, OpenAI Realtime connection, barge-in handling.");
+	// Dynamic import to avoid circular dependency
+	const { createHttpServer } = await import("./http.js");
+	createHttpServer(ctx, port);
 
-	// Keep the process alive
-	// Phase 2: replace with HTTP server + WebSocket listener
-	await new Promise(() => {});
+	console.log("Voice Orchestrator v2 — Phase 2: Realtime Hot Path");
+	console.log(`  Data directory: ${dataDir}`);
+	console.log(`  API key: ${process.env.OPENAI_API_KEY ? "set" : "NOT SET"}`);
 }
 
 main().catch((err) => {

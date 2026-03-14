@@ -207,10 +207,25 @@ export class OpenAIWebSocketTransport implements RealtimeTransport {
 				};
 
 			case "response.done":
-				return { type: "response.done" };
+				return {
+					type: "response.done",
+					responseId: msg.response?.id,
+					status: msg.response?.status ?? "completed",
+				};
 
 			case "error":
 				return { type: "error", code: msg.error?.code ?? "unknown", message: msg.error?.message ?? "" };
+
+			// GA API event name aliases — normalize to existing union types
+			case "response.output_audio.delta":
+				return { type: "response.audio.delta", delta: msg.delta ?? "" };
+			case "response.output_text.delta":
+				return { type: "response.text.delta", delta: msg.delta ?? "" };
+			case "input_audio_transcription.final":
+				return {
+					type: "conversation.item.input_audio_transcription.completed",
+					transcript: msg.content ?? msg.transcript ?? "",
+				};
 
 			default:
 				return null;
