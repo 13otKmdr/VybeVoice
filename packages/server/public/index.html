@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Merlin Voice Console</title>
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body>
+		<div class="background-orb orb-a"></div>
+		<div class="background-orb orb-b"></div>
+		<main class="shell">
+			<section class="hero card">
+				<div>
+					<p class="eyebrow">Voice Orchestrator</p>
+					<h1>Continuous voice, task-aware.</h1>
+					<p class="lede">
+						Talk naturally without push-to-talk. Merlin listens continuously, answers out loud, and surfaces
+						delegated work in the same session.
+					</p>
+				</div>
+				<div class="status-cluster">
+					<div class="status-pill idle" id="status-pill">Idle</div>
+					<p class="status-copy" id="status-copy">Create a session to begin a full duplex voice loop.</p>
+					<p class="session-meta" id="session-meta">No active session</p>
+				</div>
+			</section>
+
+			<section class="controls-grid">
+				<div class="card controls">
+					<div class="section-heading">
+						<h2>Session</h2>
+						<p id="capability-copy">OpenAI enables live voice streaming. MiniMax stays available for text replies.</p>
+					</div>
+					<div class="form-grid">
+						<label>
+							<span>User ID</span>
+							<input id="user-id" type="text" autocomplete="off" />
+						</label>
+						<label>
+							<span>Provider</span>
+							<select id="provider">
+								<option value="openai" selected>OpenAI Realtime</option>
+								<option value="minimax">MiniMax (text only)</option>
+							</select>
+						</label>
+						<label>
+							<span>Model</span>
+							<input id="model" type="text" value="gpt-realtime" autocomplete="off" />
+						</label>
+						<label>
+							<span>Voice</span>
+							<input id="voice" type="text" value="marin" autocomplete="off" />
+						</label>
+					</div>
+					<label class="stacked">
+						<span>Additional instructions</span>
+						<textarea
+							id="instructions"
+							rows="4"
+							placeholder="Optional: extra behavior, tone, or workflow instructions for Merlin."
+						></textarea>
+					</label>
+					<div class="button-row">
+						<button id="start-session" class="primary">Start live session</button>
+						<button id="interrupt-response" class="secondary" disabled>Interrupt</button>
+						<button id="stop-session" class="ghost" disabled>End session</button>
+					</div>
+				</div>
+
+				<div class="card composer">
+					<div class="section-heading">
+						<h2>Typed fallback</h2>
+						<p>Useful for MiniMax sessions or quick prompts while the mic is still hot.</p>
+					</div>
+					<div class="composer-row">
+						<textarea
+							id="text-message"
+							rows="4"
+							placeholder="Send a typed message into the current session."
+							disabled
+						></textarea>
+						<button id="send-text" class="primary" disabled>Send</button>
+					</div>
+				</div>
+			</section>
+
+			<section class="panes">
+				<div class="card pane transcript-pane">
+					<div class="section-heading">
+						<h2>Transcript</h2>
+						<p>Live user transcriptions and assistant speech output.</p>
+					</div>
+					<div id="transcript" class="transcript empty">
+						<p class="empty-state">Your conversation will appear here once Merlin starts listening.</p>
+					</div>
+				</div>
+
+				<div class="card pane tasks-pane">
+					<div class="section-heading">
+						<h2>Delegated tasks</h2>
+						<p>Anything Merlin hands off to specialists will show up here in real time.</p>
+					</div>
+					<div id="tasks" class="tasks empty">
+						<p class="empty-state">No delegated tasks in this session yet.</p>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<script type="module" src="/app.js"></script>
+	</body>
+</html>

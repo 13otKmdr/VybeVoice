@@ -16,9 +16,11 @@
 	},
 	"dependencies": {
 		"@voice-orchestrator/core": "*",
-		"@voice-orchestrator/realtime": "*"
+		"@voice-orchestrator/realtime": "*",
+		"ws": "^8.18.0"
 	},
 	"devDependencies": {
+		"@types/ws": "^8.5.14",
 		"typescript": "^5.9.2"
 	},
 	"engines": {

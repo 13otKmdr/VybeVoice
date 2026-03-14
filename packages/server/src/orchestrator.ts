@@ -77,7 +77,10 @@ export class MerlinOrchestrator {
 
 		await this.emitEvent({
 			type: "session.started",
-			session,
+			session: {
+				...session,
+				metadata: { ...session.metadata },
+			},
 		});
 
 		return session;
@@ -153,6 +156,12 @@ export class MerlinOrchestrator {
 			case "response.audio.delta":
 			case "response.text.delta":
 				this.isAssistantSpeaking = true;
+				break;
+
+			case "response.text.done":
+				this.handleAssistantTextDone(event.text).catch((err) =>
+					console.error("[orchestrator] Error handling assistant text:", err),
+				);
 				break;
 
 			case "response.function_call_arguments.done":
@@ -301,6 +310,17 @@ export class MerlinOrchestrator {
 		} else if (status === "failed") {
 			console.error("[orchestrator] Response generation failed");
 		}
+	}
+
+	private async handleAssistantTextDone(text: string): Promise<void> {
+		if (!this.session || !text.trim()) return;
+
+		await this.emitEvent({
+			type: "assistant.speaking",
+			sessionId: this.session.id,
+			text,
+			source: "direct",
+		});
 	}
 
 	private async handleConnectionClosed(code: number, reason: string): Promise<void> {

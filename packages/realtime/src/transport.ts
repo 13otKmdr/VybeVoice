@@ -7,6 +7,7 @@ export interface RealtimeConfig {
 	voice?: string;
 	inputAudioFormat?: "pcm16" | "g711_ulaw" | "g711_alaw";
 	outputAudioFormat?: "pcm16" | "g711_ulaw" | "g711_alaw";
+	outputModalities?: ("text" | "audio")[];
 	turnDetection?: TurnDetectionConfig | null;
 	tools?: RealtimeTool[];
 }
@@ -17,6 +18,9 @@ export interface TurnDetectionConfig {
 	prefix_padding_ms?: number;
 	silence_duration_ms?: number;
 	eagerness?: "low" | "medium" | "high";
+	create_response?: boolean;
+	interrupt_response?: boolean;
+	idle_timeout_ms?: number;
 }
 
 export interface RealtimeTool {

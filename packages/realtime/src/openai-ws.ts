@@ -2,6 +2,8 @@ import WebSocket from "ws";
 import type { RealtimeConfig, RealtimeEvent, RealtimeTransport, TransportState } from "./transport.js";
 
 const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime";
+const DEFAULT_OUTPUT_MODALITIES: ("text" | "audio")[] = ["audio"];
+const DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 
 export class OpenAIWebSocketTransport implements RealtimeTransport {
 	private ws: WebSocket | null = null;
@@ -24,7 +26,6 @@ export class OpenAIWebSocketTransport implements RealtimeTransport {
 			this.ws = new WebSocket(url, {
 				headers: {
 					Authorization: `Bearer ${config.apiKey}`,
-					"OpenAI-Beta": "realtime=v1",
 				},
 			});
 
@@ -129,14 +130,17 @@ export class OpenAIWebSocketTransport implements RealtimeTransport {
 		if (config.instructions) session.instructions = config.instructions;
 		if (config.voice) session.voice = config.voice;
 		if (config.inputAudioFormat) session.input_audio_format = config.inputAudioFormat;
+		else session.input_audio_format = "pcm16";
 		if (config.outputAudioFormat) session.output_audio_format = config.outputAudioFormat;
+		else session.output_audio_format = "pcm16";
+		session.output_modalities = config.outputModalities ?? DEFAULT_OUTPUT_MODALITIES;
 		if (config.turnDetection !== undefined) session.turn_detection = config.turnDetection;
 
 		if (config.tools) {
 			session.tools = config.tools;
 		}
 
-		session.input_audio_transcription = { model: "whisper-1" };
+		session.input_audio_transcription = { model: DEFAULT_TRANSCRIPTION_MODEL };
 
 		this.send({ type: "session.update", session });
 	}
@@ -219,8 +223,16 @@ export class OpenAIWebSocketTransport implements RealtimeTransport {
 			// GA API event name aliases — normalize to existing union types
 			case "response.output_audio.delta":
 				return { type: "response.audio.delta", delta: msg.delta ?? "" };
+			case "response.output_audio.done":
+				return { type: "response.audio.done" };
 			case "response.output_text.delta":
 				return { type: "response.text.delta", delta: msg.delta ?? "" };
+			case "response.output_text.done":
+				return { type: "response.text.done", text: msg.text ?? "" };
+			case "response.output_audio_transcript.delta":
+				return { type: "response.text.delta", delta: msg.delta ?? "" };
+			case "response.output_audio_transcript.done":
+				return { type: "response.text.done", text: msg.transcript ?? msg.text ?? "" };
 			case "input_audio_transcription.final":
 				return {
 					type: "conversation.item.input_audio_transcription.completed",

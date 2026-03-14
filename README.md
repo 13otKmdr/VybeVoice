@@ -74,13 +74,21 @@ npm start
 
 The server starts on port 3000 (configurable via `PORT` env var).
 
+### Web Voice Console
+
+Open [http://localhost:3000](http://localhost:3000) to use the browser voice console.
+
+- Choose `OpenAI Realtime` for continuous microphone streaming.
+- Choose `MiniMax` if you only want typed fallback in the browser.
+- The UI shows live transcript messages plus delegated task cards from the same session.
+
 ### Try It
 
 ```bash
 # Create a session
 curl -s -X POST http://localhost:3000/sessions \
   -H 'Content-Type: application/json' \
-  -d '{"userId": "test"}' | jq
+  -d '{"userId": "test", "provider": "openai"}' | jq
 
 # Send a message (direct answer)
 curl -s -X POST http://localhost:3000/sessions/{SESSION_ID}/messages \
@@ -106,7 +114,7 @@ curl -s -X DELETE http://localhost:3000/sessions/{SESSION_ID}
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/sessions` | Create a session. Body: `{ userId, model?, voice?, instructions? }` |
+| `POST` | `/sessions` | Create a session. Body: `{ userId, provider?, model?, voice?, instructions? }` |
 | `POST` | `/sessions/:id/messages` | Send a text message. Body: `{ text }` |
 | `GET` | `/sessions/:id` | Get session state + tasks |
 | `GET` | `/sessions/:id/events` | Query domain events. Params: `?since=&types=&limit=` |
@@ -137,6 +145,7 @@ HTTP server, orchestrator, and tools.
 
 - **`MerlinOrchestrator`** — core event loop: turn tracking, barge-in, function call routing, task delegation
 - **`createHttpServer()`** — REST API with auto provider detection
+- **Browser console** — static client with continuous mic capture, streamed playback, transcript view, and task cards
 - **`DELEGATE_TASK_TOOL`** — function definition for the LLM to delegate tasks
 
 ## Environment Variables
@@ -169,4 +178,5 @@ npm start              # Run the server
 - [x] **Phase 2**: Realtime hot path (orchestrator, transports, HTTP API)
 - [ ] **Phase 3**: Task delegation (TaskManager, BuilderSpecialist via pi-agent-core)
 - [ ] **Phase 4**: Memory & resilience (summaries, reconnection, retry)
-- [ ] **Phase 5**: Web UI (WebRTC transport, task cards, transcript view)
+- [x] **Phase 5a**: Web UI (session socket bridge, task cards, transcript view)
+- [ ] **Phase 5b**: Direct browser WebRTC transport
