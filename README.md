@@ -78,9 +78,10 @@ The server starts on port 3000 (configurable via `PORT` env var).
 
 Open [http://localhost:3000](http://localhost:3000) to use the browser voice console.
 
+- It behaves like a single-thread chat surface: one conversation, voice and text in the same place.
 - Choose `OpenAI Realtime` for continuous microphone streaming.
 - Choose `MiniMax` if you only want typed fallback in the browser.
-- The UI shows live transcript messages plus delegated task cards from the same session.
+- Delegated tasks stay attached to the same thread instead of moving into a separate dashboard.
 
 ### Try It
 

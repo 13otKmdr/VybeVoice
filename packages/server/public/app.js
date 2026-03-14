@@ -30,7 +30,6 @@ const elements = {
 	statusCopy: document.querySelector("#status-copy"),
 	statusPill: document.querySelector("#status-pill"),
 	stopSession: document.querySelector("#stop-session"),
-	tasks: document.querySelector("#tasks"),
 	textMessage: document.querySelector("#text-message"),
 	transcript: document.querySelector("#transcript"),
 	userId: document.querySelector("#user-id"),
@@ -47,10 +46,11 @@ elements.provider.addEventListener("change", () => {
 	elements.model.value = provider === "openai" ? "gpt-realtime" : "MiniMax-M2.5";
 	elements.voice.value = provider === "openai" ? "marin" : "English_Graceful_Lady";
 	renderCapabilityCopy();
+	syncControls();
 });
 
 elements.startSession.addEventListener("click", () => {
-	void startSession();
+	void startSession({ activateVoice: true });
 });
 
 elements.stopSession.addEventListener("click", () => {
@@ -60,7 +60,7 @@ elements.stopSession.addEventListener("click", () => {
 elements.interruptResponse.addEventListener("click", () => {
 	sendSocketMessage({ type: "response.cancel" });
 	clearPlayback();
-	setStatus("Interrupted the current reply.", "listening");
+	setStatus("Stopped the current reply.", "listening");
 });
 
 elements.sendText.addEventListener("click", () => {
@@ -75,19 +75,23 @@ elements.textMessage.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("beforeunload", () => {
-	if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+	if (state.socket?.readyState === WebSocket.OPEN) {
 		state.socket.close(1000, "page unload");
 	}
 });
 
 renderCapabilityCopy();
 setStatus("Idle", "idle");
-renderTranscript();
-renderTasks();
+renderThread();
 syncControls();
 
-async function startSession() {
-	if (state.sessionId) return;
+async function startSession({ activateVoice = true } = {}) {
+	if (state.sessionId) {
+		if (activateVoice) {
+			await ensureVoiceLive();
+		}
+		return;
+	}
 
 	const userId = elements.userId.value.trim();
 	if (!userId) {
@@ -103,7 +107,7 @@ async function startSession() {
 		instructions: elements.instructions.value.trim() || undefined,
 	};
 
-	setStatus("Creating session…", "busy");
+	setStatus("Starting thread...", "busy");
 	syncControls();
 
 	try {
@@ -121,20 +125,15 @@ async function startSession() {
 		state.provider = data.provider;
 		resetConversationState();
 		renderSessionMeta();
+		renderCapabilityCopy();
 		syncControls();
 
 		await connectSessionSocket();
 
-		if (state.provider === "openai") {
-			try {
-				await ensureAudioPipeline();
-				setStatus("Listening continuously. Speak naturally.", "ready");
-			} catch (error) {
-				console.warn("Microphone unavailable; staying in typed mode.", error);
-				setStatus("Session ready, but microphone access failed. Use typed input or retry with mic access.", "warning");
-			}
+		if (activateVoice) {
+			await ensureVoiceLive();
 		} else {
-			setStatus("MiniMax session ready. Use typed input in this build.", "warning");
+			setStatus("Thread ready. Type now or start voice whenever you want.", "ready");
 		}
 	} catch (error) {
 		console.error(error);
@@ -149,10 +148,32 @@ async function startSession() {
 	}
 }
 
+async function ensureVoiceLive() {
+	if (!state.sessionId) return;
+
+	if (state.provider !== "openai") {
+		setStatus("This provider is text-only in the browser right now.", "warning");
+		return;
+	}
+
+	if (state.audioContext) {
+		setStatus("Listening continuously. Speak naturally.", "ready");
+		return;
+	}
+
+	try {
+		await ensureAudioPipeline();
+		setStatus("Listening continuously. Speak naturally.", "ready");
+	} catch (error) {
+		console.warn("Microphone unavailable; staying in typed mode.", error);
+		setStatus("Thread is live, but mic access failed. Keep typing or retry voice.", "warning");
+	}
+}
+
 async function stopSession() {
 	if (!state.sessionId) return;
 
-	setStatus("Ending session…", "busy");
+	setStatus("Ending chat...", "busy");
 
 	const sessionId = state.sessionId;
 	await teardownSession(false);
@@ -163,20 +184,23 @@ async function stopSession() {
 		console.warn("Failed to delete session cleanly:", error);
 	}
 
-	state.sessionId = null;
 	state.provider = elements.provider.value;
-	renderSessionMeta();
-	syncControls();
-	setStatus("Session ended.", "idle");
+	renderCapabilityCopy();
+	setStatus("Chat ended.", "idle");
 }
 
 async function sendTypedMessage() {
 	const text = elements.textMessage.value.trim();
-	if (!text || !state.sessionId) return;
+	if (!text) return;
+
+	if (!state.sessionId) {
+		await startSession({ activateVoice: false });
+		if (!state.sessionId) return;
+	}
 
 	elements.textMessage.value = "";
 	appendMessage("user", text);
-	setStatus("Thinking…", "busy");
+	setStatus("Thinking...", "busy");
 
 	if (state.socket?.readyState === WebSocket.OPEN) {
 		sendSocketMessage({ type: "text.send", text });
@@ -217,7 +241,7 @@ async function connectSessionSocket() {
 				state.socket = null;
 				syncControls();
 				if (state.sessionId && event.code !== 1000) {
-					setStatus("Session socket closed unexpectedly.", "warning");
+					setStatus("Thread connection closed unexpectedly.", "warning");
 				}
 			}
 		});
@@ -255,7 +279,7 @@ async function ensureAudioPipeline() {
 		const samples = event.data;
 		if (!(samples instanceof Float32Array)) return;
 		const pcm = float32ToPcm16(downsample(samples, audioContext.sampleRate, SAMPLE_RATE));
-		if (!pcm.byteLength || !state.socket || state.socket.readyState !== WebSocket.OPEN) return;
+		if (!pcm.byteLength || state.socket?.readyState !== WebSocket.OPEN) return;
 		sendSocketMessage({ type: "audio.append", audio: arrayBufferToBase64(pcm.buffer) });
 	};
 
@@ -269,6 +293,8 @@ async function ensureAudioPipeline() {
 	state.micNode = micNode;
 	state.silentGain = silentGain;
 	state.playbackCursor = audioContext.currentTime;
+
+	syncControls();
 }
 
 async function teardownSession(preserveSessionId) {
@@ -354,7 +380,6 @@ function applySnapshot(snapshot) {
 	resetConversationState();
 	state.provider = snapshot.provider || state.provider;
 	state.tasks = new Map((snapshot.tasks || []).map((task) => [task.id, task]));
-	renderTasks();
 
 	const events = Array.isArray(snapshot.events) ? snapshot.events.slice().sort((a, b) => a.timestamp - b.timestamp) : [];
 	for (const event of events) {
@@ -371,17 +396,18 @@ function applySnapshot(snapshot) {
 
 	renderSessionMeta();
 	renderCapabilityCopy();
+	renderThread();
 }
 
 function handleRealtimeEvent(event) {
 	switch (event.type) {
 		case "input_audio_buffer.speech_started":
 			clearPlayback();
-			setStatus("You’re speaking. Merlin will barge out.", "listening");
+			setStatus("Listening...", "listening");
 			return;
 
 		case "input_audio_buffer.speech_stopped":
-			setStatus("Thinking…", "busy");
+			setStatus("Thinking...", "busy");
 			return;
 
 		case "conversation.item.input_audio_transcription.completed":
@@ -390,12 +416,12 @@ function handleRealtimeEvent(event) {
 
 		case "response.audio.delta":
 			queueAssistantAudio(event.delta);
-			setStatus("Merlin is speaking.", "speaking");
+			setStatus("Speaking...", "speaking");
 			return;
 
 		case "response.audio.done":
-			if (state.provider === "openai" && state.sessionId) {
-				setStatus("Listening continuously. Speak naturally.", "ready");
+			if (state.sessionId) {
+				setStatus(state.audioContext ? "Listening continuously. Speak naturally." : "Thread ready.", "ready");
 			}
 			return;
 
@@ -421,54 +447,58 @@ function handleDomainEvent(event) {
 	switch (event.type) {
 		case "task.created":
 			state.tasks.set(event.task.id, event.task);
-			renderTasks();
+			renderThread();
 			return;
 
 		case "task.status_changed": {
-			const existing = state.tasks.get(event.taskId);
-			if (existing) {
-				existing.status = event.newStatus;
-				existing.updatedAt = event.timestamp;
-				state.tasks.set(event.taskId, existing);
+			const task = state.tasks.get(event.taskId);
+			if (task) {
+				task.status = event.newStatus;
+				task.updatedAt = event.timestamp;
+				state.tasks.set(event.taskId, task);
+				renderThread();
 			}
-			renderTasks();
 			return;
 		}
 
 		case "task.completed": {
-			const existing = state.tasks.get(event.taskId);
-			if (existing) {
-				existing.status = "completed";
-				existing.updatedAt = event.timestamp;
+			const task = state.tasks.get(event.taskId);
+			if (task) {
+				task.status = "completed";
+				task.updatedAt = event.timestamp;
 				if (event.result) {
-					existing.result = event.result;
+					task.result = event.result;
 				}
-				state.tasks.set(event.taskId, existing);
+				state.tasks.set(event.taskId, task);
+				renderThread();
 			}
-			renderTasks();
 			return;
 		}
 
 		case "task.failed": {
-			const existing = state.tasks.get(event.taskId);
-			if (existing) {
-				existing.status = "failed";
-				existing.updatedAt = event.timestamp;
-				existing.error = event.error;
-				state.tasks.set(event.taskId, existing);
+			const task = state.tasks.get(event.taskId);
+			if (task) {
+				task.status = "failed";
+				task.updatedAt = event.timestamp;
+				task.error = event.error;
+				state.tasks.set(event.taskId, task);
+				renderThread();
 			}
-			renderTasks();
 			return;
 		}
 
 		case "assistant.interrupted":
 			clearPlayback();
 			markAssistantDraftInterrupted();
-			setStatus("Assistant interrupted. Listening again.", "listening");
+			setStatus("Reply interrupted.", "listening");
 			return;
 
 		case "session.ended":
-			setStatus(`Session ended (${event.reason}).`, "idle");
+			if (event.sessionId === state.sessionId) {
+				void teardownSession(false).then(() => {
+					setStatus(`Chat ended (${event.reason}).`, event.reason === "error" ? "error" : "idle");
+				});
+			}
 			return;
 
 		case "turn.ended":
@@ -499,7 +529,7 @@ function appendMessage(role, text, { markRecent = true } = {}) {
 		text: content,
 		partial: false,
 	});
-	renderTranscript();
+	renderThread();
 }
 
 function updateAssistantDraft(delta) {
@@ -518,7 +548,7 @@ function updateAssistantDraft(delta) {
 	}
 
 	draft.text += delta;
-	renderTranscript();
+	renderThread();
 }
 
 function finalizeAssistantDraft(text) {
@@ -535,30 +565,34 @@ function finalizeAssistantDraft(text) {
 	draft.partial = false;
 	state.assistantDraftId = null;
 	rememberMessage("assistant", content);
-	renderTranscript();
+	renderThread();
 }
 
 function markAssistantDraftInterrupted() {
 	if (!state.assistantDraftId) return;
+
 	const draft = state.messages.find((message) => message.id === state.assistantDraftId);
 	if (!draft) return;
 
 	draft.partial = false;
-	if (!draft.text.endsWith("…")) {
-		draft.text = `${draft.text.trim()}…`;
+	if (!draft.text.endsWith("...")) {
+		draft.text = `${draft.text.trim()}...`;
 	}
 	state.assistantDraftId = null;
-	renderTranscript();
+	renderThread();
 }
 
-function renderTranscript() {
+function renderThread() {
 	elements.transcript.innerHTML = "";
 
-	if (state.messages.length === 0) {
+	const hasMessages = state.messages.length > 0;
+	const hasTasks = state.tasks.size > 0;
+
+	if (!hasMessages && !hasTasks) {
 		elements.transcript.classList.add("empty");
 		const empty = document.createElement("p");
 		empty.className = "empty-state";
-		empty.textContent = "Your conversation will appear here once Merlin starts listening.";
+		empty.textContent = "This thread is empty. Start voice or type a message.";
 		elements.transcript.append(empty);
 		return;
 	}
@@ -567,85 +601,82 @@ function renderTranscript() {
 
 	for (const message of state.messages) {
 		const article = document.createElement("article");
-		article.className = `message ${message.role}`;
+		article.className = `thread-item ${message.role}`;
 		if (message.partial) {
 			article.classList.add("partial");
 		}
 
 		const label = document.createElement("p");
-		label.className = "message-role";
+		label.className = "thread-role";
 		label.textContent = message.role === "assistant" ? "Merlin" : "You";
 
 		const body = document.createElement("p");
-		body.className = "message-body";
+		body.className = "thread-body";
 		body.textContent = message.text;
 
 		article.append(label, body);
 		elements.transcript.append(article);
 	}
 
+	if (hasTasks) {
+		const stack = document.createElement("section");
+		stack.className = "task-stack";
+
+		for (const task of Array.from(state.tasks.values()).sort((a, b) => b.createdAt - a.createdAt)) {
+			const card = document.createElement("article");
+			card.className = "task-card";
+
+			const top = document.createElement("div");
+			top.className = "task-topline";
+
+			const kind = document.createElement("span");
+			kind.className = "task-kind";
+			kind.textContent = task.kind;
+
+			const status = document.createElement("span");
+			status.className = `task-status status-${task.status}`;
+			status.textContent = task.status;
+
+			top.append(kind, status);
+
+			const body = document.createElement("p");
+			body.className = "task-intent";
+			body.textContent = task.intent;
+
+			const meta = document.createElement("p");
+			meta.className = "task-meta";
+			meta.textContent = `Task ${task.id}`;
+
+			card.append(top, body, meta);
+			stack.append(card);
+		}
+
+		elements.transcript.append(stack);
+	}
+
 	elements.transcript.scrollTop = elements.transcript.scrollHeight;
-}
-
-function renderTasks() {
-	elements.tasks.innerHTML = "";
-
-	if (state.tasks.size === 0) {
-		elements.tasks.classList.add("empty");
-		const empty = document.createElement("p");
-		empty.className = "empty-state";
-		empty.textContent = "No delegated tasks in this session yet.";
-		elements.tasks.append(empty);
-		return;
-	}
-
-	elements.tasks.classList.remove("empty");
-
-	for (const task of Array.from(state.tasks.values()).sort((a, b) => b.createdAt - a.createdAt)) {
-		const card = document.createElement("article");
-		card.className = "task-card";
-
-		const top = document.createElement("div");
-		top.className = "task-topline";
-
-		const kind = document.createElement("span");
-		kind.className = "task-kind";
-		kind.textContent = task.kind;
-
-		const status = document.createElement("span");
-		status.className = `task-status status-${task.status}`;
-		status.textContent = task.status;
-
-		top.append(kind, status);
-
-		const body = document.createElement("p");
-		body.className = "task-intent";
-		body.textContent = task.intent;
-
-		const meta = document.createElement("p");
-		meta.className = "task-meta";
-		meta.textContent = `Task ${task.id}`;
-
-		card.append(top, body, meta);
-		elements.tasks.append(card);
-	}
 }
 
 function renderSessionMeta() {
 	if (!state.sessionId) {
-		elements.sessionMeta.textContent = "No active session";
+		elements.sessionMeta.textContent = "No active thread";
 		return;
 	}
 
-	elements.sessionMeta.textContent = `${state.provider} • ${state.sessionId}`;
+	elements.sessionMeta.textContent = `${state.provider} thread - ${state.sessionId}`;
 }
 
 function renderCapabilityCopy() {
 	const provider = state.sessionId ? state.provider : elements.provider.value;
+	if (provider === "openai") {
+		elements.capabilityCopy.textContent = state.audioContext
+			? "Voice is live. Keep talking or keep typing in this same thread."
+			: "OpenAI Realtime supports continuous voice in this thread.";
+		return;
+	}
+
 	elements.capabilityCopy.textContent =
-		provider === "openai"
-			? "OpenAI Realtime supports continuous microphone streaming in this console."
-			: "MiniMax is wired for text responses here. Switch to OpenAI for live voice turns.";
+		"MiniMax is text-only in the browser right now. The orchestration layer still stays in the same thread.";
 }
 
 function setStatus(text, tone) {
@@ -657,20 +688,34 @@ function setStatus(text, tone) {
 function syncControls() {
 	const connected = Boolean(state.sessionId);
 	const socketOpen = state.socket?.readyState === WebSocket.OPEN;
+	const voiceActive = Boolean(state.audioContext);
+	const provider = connected ? state.provider : elements.provider.value;
 
-	elements.startSession.disabled = connected;
+	if (!connected) {
+		elements.startSession.textContent = "Start voice";
+		elements.startSession.disabled = false;
+	} else if (provider !== "openai") {
+		elements.startSession.textContent = "Text only";
+		elements.startSession.disabled = true;
+	} else if (voiceActive) {
+		elements.startSession.textContent = "Voice live";
+		elements.startSession.disabled = true;
+	} else {
+		elements.startSession.textContent = "Enable voice";
+		elements.startSession.disabled = false;
+	}
+
 	elements.stopSession.disabled = !connected;
 	elements.interruptResponse.disabled = !socketOpen;
-	elements.sendText.disabled = !connected;
-	elements.textMessage.disabled = !connected;
 	elements.provider.disabled = connected;
 	elements.userId.disabled = connected;
 	elements.model.disabled = connected;
 	elements.voice.disabled = connected;
+	elements.instructions.disabled = connected;
 }
 
 function sendSocketMessage(message) {
-	if (!state.socket || state.socket.readyState !== WebSocket.OPEN) return;
+	if (state.socket?.readyState !== WebSocket.OPEN) return;
 	state.socket.send(JSON.stringify(message));
 }
 
@@ -679,8 +724,7 @@ function resetConversationState() {
 	state.tasks = new Map();
 	state.assistantDraftId = null;
 	state.recentMessages = new Map();
-	renderTranscript();
-	renderTasks();
+	renderThread();
 }
 
 function queueAssistantAudio(base64) {
