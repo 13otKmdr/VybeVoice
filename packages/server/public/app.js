@@ -369,12 +369,13 @@ const slideState = {
 	currentX: 0,
 	triggered: false,
 	originalTransform: "",
+	activePointerId: null,
 	tapHandled: false, // Prevent click event from double-firing after touch
 };
 
-function getSlideMetrics(touch) {
-	const deltaX = touch.clientX - slideState.startX;
-	const deltaY = touch.clientY - slideState.startY;
+function getSlideMetrics(point) {
+	const deltaX = point.clientX - slideState.startX;
+	const deltaY = point.clientY - slideState.startY;
 	const horizontalGesture = Math.abs(deltaY) <= Math.abs(deltaX) * 1.5;
 
 	return { deltaX, deltaY, horizontalGesture };
@@ -394,11 +395,72 @@ function markVoiceThresholdReached() {
 function resetSlideGesture() {
 	slideState.isSliding = false;
 	slideState.triggered = false;
+	slideState.activePointerId = null;
 
 	elements.sendText.classList.remove("sliding", "voice-triggered");
 	elements.sendText.style.transform = slideState.originalTransform;
 	elements.slideIndicator.classList.remove("visible");
 	elements.slideIndicator.style.opacity = "";
+}
+
+function beginSlideGesture(point) {
+	slideState.isSliding = true;
+	slideState.startX = point.clientX;
+	slideState.startY = point.clientY;
+	slideState.currentX = point.clientX;
+	slideState.triggered = false;
+	slideState.originalTransform = elements.sendText.style.transform || "";
+	slideState.tapHandled = false;
+
+	elements.sendText.classList.add("sliding");
+	elements.slideIndicator.classList.add("visible");
+}
+
+function updateSlideGesture(point) {
+	const { deltaX, deltaY, horizontalGesture } = getSlideMetrics(point);
+
+	// If vertical movement is dominant, let the page keep control.
+	if (!horizontalGesture) {
+		return { deltaX, deltaY, horizontalGesture };
+	}
+
+	slideState.currentX = point.clientX;
+
+	// Calculate slide progress (clamped 0-1)
+	const progress = Math.min(1, Math.max(0, deltaX / SLIDE_THRESHOLD));
+
+	// Apply visual feedback
+	const translateX = Math.max(0, deltaX * 0.8);
+	const scale = 1 + progress * 0.15;
+	elements.sendText.style.transform = `translateX(${translateX}px) scale(${scale})`;
+
+	// Show slide indicator progress
+	elements.slideIndicator.style.opacity = progress;
+
+	if (deltaX >= SLIDE_THRESHOLD) {
+		markVoiceThresholdReached();
+	}
+
+	return { deltaX, deltaY, horizontalGesture };
+}
+
+function completeSlideGesture(point) {
+	const { deltaX, deltaY, horizontalGesture } = point
+		? getSlideMetrics(point)
+		: { deltaX: slideState.currentX - slideState.startX, deltaY: 0, horizontalGesture: true };
+	const crossedThreshold = horizontalGesture && deltaX >= SLIDE_THRESHOLD;
+	const isTap = Math.abs(deltaX) < TAP_THRESHOLD && Math.abs(deltaY) < TAP_THRESHOLD;
+
+	slideState.tapHandled = crossedThreshold || isTap;
+
+	if (crossedThreshold) {
+		markVoiceThresholdReached();
+		void activateVoiceModeFromGesture();
+	} else if (isTap) {
+		void sendTypedMessage();
+	}
+
+	resetSlideGesture();
 }
 
 async function activateVoiceModeFromGesture() {
@@ -416,84 +478,76 @@ async function activateVoiceModeFromGesture() {
 	await startSession({ activateVoice: true });
 }
 
-elements.sendText.addEventListener("touchstart", (event) => {
-	if (elements.sendText.disabled) return;
-	
-	const touch = event.touches[0];
-	slideState.isSliding = true;
-	slideState.startX = touch.clientX;
-	slideState.startY = touch.clientY;
-	slideState.currentX = touch.clientX;
-	slideState.triggered = false;
-	slideState.originalTransform = elements.sendText.style.transform || "";
-	slideState.tapHandled = false;
-	
-	elements.sendText.classList.add("sliding");
-	elements.slideIndicator.classList.add("visible");
-}, { passive: true });
+if (window.PointerEvent) {
+	elements.sendText.addEventListener("pointerdown", (event) => {
+		if (elements.sendText.disabled || event.pointerType === "mouse") return;
 
-elements.sendText.addEventListener("touchmove", (event) => {
-	if (!slideState.isSliding) return;
-	
-	const touch = event.touches[0];
-	const { deltaX, deltaY, horizontalGesture } = getSlideMetrics(touch);
-	
-	// If vertical movement is dominant, cancel slide
-	if (!horizontalGesture) {
-		return;
-	}
-	
-	// Prevent scrolling while sliding horizontally
-	if (deltaX > 10) {
-		event.preventDefault();
-	}
-	
-	slideState.currentX = touch.clientX;
-	
-	// Calculate slide progress (clamped 0-1)
-	const progress = Math.min(1, Math.max(0, deltaX / SLIDE_THRESHOLD));
-	
-	// Apply visual feedback
-	const translateX = Math.max(0, deltaX * 0.8);
-	const scale = 1 + progress * 0.15;
-	elements.sendText.style.transform = `translateX(${translateX}px) scale(${scale})`;
-	
-	// Show slide indicator progress
-	elements.slideIndicator.style.opacity = progress;
-	
-	// Check if threshold reached
-	if (deltaX >= SLIDE_THRESHOLD) {
-		markVoiceThresholdReached();
-	}
-}, { passive: false });
+		slideState.activePointerId = event.pointerId;
+		elements.sendText.setPointerCapture(event.pointerId);
+		beginSlideGesture(event);
+	});
 
-elements.sendText.addEventListener("touchend", (event) => {
-	if (!slideState.isSliding) return;
-	
-	const touch = event.changedTouches[0];
-	const { deltaX, deltaY, horizontalGesture } = touch
-		? getSlideMetrics(touch)
-		: { deltaX: slideState.currentX - slideState.startX, deltaY: 0, horizontalGesture: true };
-	const crossedThreshold = horizontalGesture && deltaX >= SLIDE_THRESHOLD;
-	const isTap = Math.abs(deltaX) < TAP_THRESHOLD && Math.abs(deltaY) < TAP_THRESHOLD;
-	
-	slideState.tapHandled = crossedThreshold || isTap;
+	elements.sendText.addEventListener("pointermove", (event) => {
+		if (!slideState.isSliding || event.pointerId !== slideState.activePointerId) return;
 
-	if (crossedThreshold) {
-		markVoiceThresholdReached();
-		void activateVoiceModeFromGesture();
-	} else if (isTap) {
-		// It was a tap, send message if there's text
-		void sendTypedMessage();
-	}
-	
-	resetSlideGesture();
-});
+		const { deltaX, horizontalGesture } = updateSlideGesture(event);
 
-elements.sendText.addEventListener("touchcancel", () => {
-	slideState.tapHandled = false;
-	resetSlideGesture();
-});
+		// Prevent horizontal swipe from being eaten by browser panning.
+		if (horizontalGesture && deltaX > 10) {
+			event.preventDefault();
+		}
+	});
+
+	elements.sendText.addEventListener("pointerup", (event) => {
+		if (!slideState.isSliding || event.pointerId !== slideState.activePointerId) return;
+
+		elements.sendText.releasePointerCapture(event.pointerId);
+		completeSlideGesture(event);
+	});
+
+	elements.sendText.addEventListener("pointercancel", (event) => {
+		if (event.pointerId !== slideState.activePointerId) return;
+
+		slideState.tapHandled = false;
+		if (elements.sendText.hasPointerCapture(event.pointerId)) {
+			elements.sendText.releasePointerCapture(event.pointerId);
+		}
+		resetSlideGesture();
+	});
+} else {
+	elements.sendText.addEventListener("touchstart", (event) => {
+		if (elements.sendText.disabled) return;
+
+		const touch = event.touches[0];
+		if (!touch) return;
+
+		beginSlideGesture(touch);
+	}, { passive: true });
+
+	elements.sendText.addEventListener("touchmove", (event) => {
+		if (!slideState.isSliding) return;
+
+		const touch = event.touches[0];
+		if (!touch) return;
+
+		const { deltaX, horizontalGesture } = updateSlideGesture(touch);
+
+		if (horizontalGesture && deltaX > 10) {
+			event.preventDefault();
+		}
+	}, { passive: false });
+
+	elements.sendText.addEventListener("touchend", (event) => {
+		if (!slideState.isSliding) return;
+
+		completeSlideGesture(event.changedTouches[0]);
+	});
+
+	elements.sendText.addEventListener("touchcancel", () => {
+		slideState.tapHandled = false;
+		resetSlideGesture();
+	});
+}
 
 elements.textMessage.addEventListener("keydown", (event) => {
 	if (event.key === "Enter" && !event.shiftKey) {

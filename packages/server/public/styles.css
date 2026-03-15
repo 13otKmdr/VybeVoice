@@ -895,11 +895,15 @@ textarea {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	position: relative;
+	flex-shrink: 0;
+	z-index: 1;
 	border-radius: 50%;
 	background: #8B5CF6;
 	color: #fff;
 	transition: background var(--transition), opacity var(--transition), transform var(--transition), box-shadow var(--transition);
 	cursor: grab;
+	touch-action: pan-y;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -945,6 +949,7 @@ textarea {
 	width: 100%;
 	top: 0;
 	left: 0;
+	pointer-events: none;
 }
 
 .send-btn.voice-active .equalizer {
