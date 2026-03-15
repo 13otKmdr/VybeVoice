@@ -187,8 +187,8 @@ function autoResizeTextarea() {
 }
 
 function updateSendButton() {
-	const hasText = elements.textMessage.value.trim().length > 0;
-	elements.sendText.disabled = !hasText;
+	// Always enabled - slide-to-talk works without text, tap sends only if text exists
+	elements.sendText.disabled = false;
 }
 
 // ── Provider change ─────────────────────────────────────────────────────
@@ -221,6 +221,11 @@ elements.interruptResponse.addEventListener("click", () => {
 });
 
 elements.sendText.addEventListener("click", () => {
+	// If touch already handled this tap, skip
+	if (slideState.tapHandled) {
+		slideState.tapHandled = false;
+		return;
+	}
 	void sendTypedMessage();
 });
 
@@ -234,6 +239,7 @@ const slideState = {
 	currentX: 0,
 	triggered: false,
 	originalTransform: "",
+	tapHandled: false, // Prevent click event from double-firing after touch
 };
 
 elements.sendText.addEventListener("touchstart", (event) => {
@@ -303,6 +309,7 @@ elements.sendText.addEventListener("touchend", (event) => {
 		void startSession({ activateVoice: true });
 	} else if (deltaX < 20 && !slideState.triggered) {
 		// It was a tap, send message if there's text
+		slideState.tapHandled = true;
 		void sendTypedMessage();
 	}
 	
@@ -319,6 +326,7 @@ elements.sendText.addEventListener("touchend", (event) => {
 elements.sendText.addEventListener("touchcancel", () => {
 	slideState.isSliding = false;
 	slideState.triggered = false;
+	slideState.tapHandled = false;
 	
 	elements.sendText.classList.remove("sliding", "voice-triggered");
 	elements.sendText.style.transform = slideState.originalTransform;
