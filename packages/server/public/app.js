@@ -39,6 +39,8 @@ const elements = {
 	sidebarOpenBtn: document.querySelector("#sidebar-open-btn"),
 	sidebarBackdrop: document.querySelector("#sidebar-backdrop"),
 	newChatBtn: document.querySelector("#new-chat-btn"),
+	composer: document.querySelector("#composer"),
+	slideIndicator: document.querySelector("#slide-indicator"),
 };
 
 elements.userId.value = `browser-${Math.random().toString(36).slice(2, 8)}`;
@@ -143,6 +145,108 @@ elements.interruptResponse.addEventListener("click", () => {
 
 elements.sendText.addEventListener("click", () => {
 	void sendTypedMessage();
+});
+
+// ── Slide-to-talk gesture ───────────────────────────────────────────────
+
+const SLIDE_THRESHOLD = 80; // pixels to trigger voice mode
+const slideState = {
+	isSliding: false,
+	startX: 0,
+	startY: 0,
+	currentX: 0,
+	triggered: false,
+	originalTransform: "",
+};
+
+elements.sendText.addEventListener("touchstart", (event) => {
+	if (elements.sendText.disabled) return;
+	
+	const touch = event.touches[0];
+	slideState.isSliding = true;
+	slideState.startX = touch.clientX;
+	slideState.startY = touch.clientY;
+	slideState.currentX = touch.clientX;
+	slideState.triggered = false;
+	slideState.originalTransform = elements.sendText.style.transform || "";
+	
+	elements.sendText.classList.add("sliding");
+	elements.slideIndicator.classList.add("visible");
+}, { passive: true });
+
+elements.sendText.addEventListener("touchmove", (event) => {
+	if (!slideState.isSliding) return;
+	
+	const touch = event.touches[0];
+	const deltaX = touch.clientX - slideState.startX;
+	const deltaY = touch.clientY - slideState.startY;
+	
+	// If vertical movement is dominant, cancel slide
+	if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+		return;
+	}
+	
+	// Prevent scrolling while sliding horizontally
+	if (deltaX > 10) {
+		event.preventDefault();
+	}
+	
+	slideState.currentX = touch.clientX;
+	
+	// Calculate slide progress (clamped 0-1)
+	const progress = Math.min(1, Math.max(0, deltaX / SLIDE_THRESHOLD));
+	
+	// Apply visual feedback
+	const translateX = Math.max(0, deltaX * 0.8);
+	const scale = 1 + progress * 0.15;
+	elements.sendText.style.transform = `translateX(${translateX}px) scale(${scale})`;
+	
+	// Show slide indicator progress
+	elements.slideIndicator.style.opacity = progress;
+	
+	// Check if threshold reached
+	if (deltaX >= SLIDE_THRESHOLD && !slideState.triggered) {
+		slideState.triggered = true;
+		elements.sendText.classList.add("voice-triggered");
+		
+		// Vibrate for feedback if available
+		if (navigator.vibrate) {
+			navigator.vibrate(50);
+		}
+	}
+}, { passive: false });
+
+elements.sendText.addEventListener("touchend", (event) => {
+	if (!slideState.isSliding) return;
+	
+	const deltaX = slideState.currentX - slideState.startX;
+	
+	if (slideState.triggered && deltaX >= SLIDE_THRESHOLD) {
+		// Trigger voice mode
+		void startSession({ activateVoice: true });
+	} else if (deltaX < 20 && !slideState.triggered) {
+		// It was a tap, send message if there's text
+		void sendTypedMessage();
+	}
+	
+	// Reset state
+	slideState.isSliding = false;
+	slideState.triggered = false;
+	
+	elements.sendText.classList.remove("sliding", "voice-triggered");
+	elements.sendText.style.transform = slideState.originalTransform;
+	elements.slideIndicator.classList.remove("visible");
+	elements.slideIndicator.style.opacity = "";
+});
+
+elements.sendText.addEventListener("touchcancel", () => {
+	slideState.isSliding = false;
+	slideState.triggered = false;
+	
+	elements.sendText.classList.remove("sliding", "voice-triggered");
+	elements.sendText.style.transform = slideState.originalTransform;
+	elements.slideIndicator.classList.remove("visible");
+	elements.slideIndicator.style.opacity = "";
 });
 
 elements.textMessage.addEventListener("keydown", (event) => {
@@ -810,24 +914,16 @@ function syncControls() {
 	const voiceActive = Boolean(state.audioContext);
 	const provider = connected ? state.provider : elements.provider.value;
 
-	// Voice button state
-	const voiceBtn = elements.startSession;
-	if (!connected) {
-		voiceBtn.disabled = false;
-		voiceBtn.classList.remove("voice-active");
-		voiceBtn.title = "Start voice";
-	} else if (provider !== "openai") {
-		voiceBtn.disabled = true;
-		voiceBtn.classList.remove("voice-active");
-		voiceBtn.title = "Text only";
-	} else if (voiceActive) {
-		voiceBtn.disabled = true;
-		voiceBtn.classList.add("voice-active");
-		voiceBtn.title = "Voice is live";
+	// Send button state - enabled for text OR slide-to-talk
+	elements.sendText.disabled = false;
+	
+	// Update send button appearance when voice is active
+	if (voiceActive) {
+		elements.sendText.classList.add("voice-active");
+		elements.sendText.title = "Voice is active - slide to talk";
 	} else {
-		voiceBtn.disabled = false;
-		voiceBtn.classList.remove("voice-active");
-		voiceBtn.title = "Enable voice";
+		elements.sendText.classList.remove("voice-active");
+		elements.sendText.title = "Send message or slide for voice";
 	}
 
 	elements.stopSession.disabled = !connected;
