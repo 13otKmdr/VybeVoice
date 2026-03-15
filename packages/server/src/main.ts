@@ -44,12 +44,12 @@ async function main(): Promise<void> {
 	// Instantiate capabilities
 	const builderSpecialist = new BuilderSpecialist();
 	const merlinSpecialist = new MerlinSpecialist();
-	
+
 	const taskManager = new TaskManager({
 		taskStore: ctx.taskStore,
 		eventLog: ctx.eventLog,
 		specialists: [merlinSpecialist, builderSpecialist],
-		pollIntervalMs: 2000
+		pollIntervalMs: 2000,
 	});
 
 	ctx.taskManager = taskManager;

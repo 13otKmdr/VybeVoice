@@ -22,6 +22,7 @@ const state = {
 
 const elements = {
 	capabilityCopy: document.querySelector("#capability-copy"),
+	chatHistory: document.querySelector("#chat-history"),
 	instructions: document.querySelector("#instructions"),
 	interruptResponse: document.querySelector("#interrupt-response"),
 	model: document.querySelector("#model"),
@@ -29,6 +30,9 @@ const elements = {
 	sendText: document.querySelector("#send-text"),
 	sendIcon: document.querySelector("#send-text svg"),
 	sessionMeta: document.querySelector("#session-meta"),
+	settingsBtn: document.querySelector("#settings-btn"),
+	settingsCloseBtn: document.querySelector("#settings-close-btn"),
+	settingsOverlay: document.querySelector("#settings-overlay"),
 	startSession: document.querySelector("#start-session"),
 	statusCopy: document.querySelector("#status-copy"),
 	statusPill: document.querySelector("#status-pill"),
@@ -38,6 +42,7 @@ const elements = {
 	userId: document.querySelector("#user-id"),
 	voice: document.querySelector("#voice"),
 	sidebar: document.querySelector("#sidebar"),
+	sidebarBackdrop: document.querySelector("#sidebar-backdrop"),
 	sidebarToggle: document.querySelector("#sidebar-toggle"),
 	sidebarOpenBtn: document.querySelector("#sidebar-open-btn"),
 	sidebarBackdrop: document.querySelector("#sidebar-backdrop"),
@@ -141,18 +146,21 @@ function toggleSidebar() {
 	const sidebar = elements.sidebar;
 	const openBtn = elements.sidebarOpenBtn;
 	const backdrop = elements.sidebarBackdrop;
-	
 	const isCollapsed = sidebar.classList.contains("collapsed");
 	
 	if (isCollapsed) {
 		sidebar.classList.remove("collapsed");
 		openBtn.classList.add("hidden");
 		backdrop.classList.add("visible");
+		backdrop.classList.remove("hidden");
 	} else {
 		sidebar.classList.add("collapsed");
 		openBtn.classList.remove("hidden");
 		backdrop.classList.remove("visible");
+		backdrop.classList.add("hidden");
 	}
+	
+	localStorage.setItem("sidebar-collapsed", !isCollapsed ? "1" : "0");
 }
 
 function closeSidebar() {
@@ -163,8 +171,31 @@ function closeSidebar() {
 	sidebar.classList.add("collapsed");
 	openBtn.classList.remove("hidden");
 	backdrop.classList.remove("visible");
+	backdrop.classList.add("hidden");
+	localStorage.setItem("sidebar-collapsed", "1");
 }
 
+// Restore sidebar collapse state
+if (localStorage.getItem("sidebar-collapsed") === "1") {
+	elements.sidebar.classList.add("collapsed");
+	elements.sidebarOpenBtn.classList.remove("hidden");
+}
+
+// ── Settings modal ──────────────────────────────────────────────────────
+
+elements.settingsBtn.addEventListener("click", () => {
+	elements.settingsOverlay.classList.remove("hidden");
+});
+
+elements.settingsCloseBtn.addEventListener("click", () => {
+	elements.settingsOverlay.classList.add("hidden");
+});
+
+elements.settingsOverlay.addEventListener("click", (event) => {
+	if (event.target === elements.settingsOverlay) {
+		elements.settingsOverlay.classList.add("hidden");
+	}
+});
 // ── New chat button ─────────────────────────────────────────────────────
 
 elements.newChatBtn.addEventListener("click", () => {
@@ -172,6 +203,102 @@ elements.newChatBtn.addEventListener("click", () => {
 		void stopSession();
 	}
 });
+
+// ── Chat history ────────────────────────────────────────────────────────
+
+async function fetchAndRenderHistory() {
+	try {
+		const response = await fetch("/sessions");
+		if (!response.ok) return;
+		const data = await response.json();
+		renderHistory(data.sessions || []);
+	} catch {
+		// silently fail
+	}
+}
+
+function renderHistory(sessions) {
+	const container = elements.chatHistory;
+	container.innerHTML = "";
+
+	if (sessions.length === 0) {
+		const empty = document.createElement("p");
+		empty.className = "history-empty";
+		empty.textContent = "No sessions yet";
+		container.append(empty);
+		return;
+	}
+
+	const now = new Date();
+	const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+	const todaySessions = [];
+	const olderSessions = [];
+
+	for (const session of sessions) {
+		if (session.lastActiveAt >= todayStart) {
+			todaySessions.push(session);
+		} else {
+			olderSessions.push(session);
+		}
+	}
+
+	if (todaySessions.length > 0) {
+		const label = document.createElement("p");
+		label.className = "history-label";
+		label.textContent = "Today";
+		container.append(label);
+		for (const session of todaySessions) {
+			container.append(createHistoryItem(session));
+		}
+	}
+
+	if (olderSessions.length > 0) {
+		const label = document.createElement("p");
+		label.className = "history-label";
+		label.textContent = "Older";
+		container.append(label);
+		for (const session of olderSessions) {
+			container.append(createHistoryItem(session));
+		}
+	}
+}
+
+function createHistoryItem(session) {
+	const btn = document.createElement("button");
+	btn.className = "history-item";
+	if (session.id === state.sessionId) {
+		btn.classList.add("active");
+	}
+
+	const dot = document.createElement("span");
+	dot.className = "history-dot";
+	if (session.state === "active" || session.state === "idle") {
+		dot.classList.add("active");
+	} else {
+		dot.classList.add("ended");
+	}
+
+	const title = document.createElement("span");
+	title.className = "history-title";
+	const sessionDate = new Date(session.startedAt);
+	title.textContent = session.metadata?.title || `Session ${sessionDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+	btn.append(dot, title);
+
+	btn.addEventListener("click", () => {
+		// For now, just highlight — future: reconnect to session
+		const items = elements.chatHistory.querySelectorAll(".history-item");
+		for (const item of items) {
+			item.classList.remove("active");
+		}
+		btn.classList.add("active");
+	});
+
+	return btn;
+}
+
+// Fetch history on load
+fetchAndRenderHistory();
 
 // ── Auto-resize textarea ────────────────────────────────────────────────
 
@@ -442,6 +569,7 @@ async function startSession({ activateVoice = true } = {}) {
 		syncControls();
 
 		await connectSessionSocket();
+		fetchAndRenderHistory();
 
 		if (activateVoice) {
 			await ensureVoiceLive();
@@ -500,6 +628,7 @@ async function stopSession() {
 	state.provider = elements.provider.value;
 	renderCapabilityCopy();
 	setStatus("Session ended.", "idle");
+	fetchAndRenderHistory();
 }
 
 async function sendTypedMessage() {

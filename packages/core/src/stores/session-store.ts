@@ -7,6 +7,7 @@ export interface SessionStore {
 	get(id: string): Promise<SessionRecord | null>;
 	save(session: SessionRecord): Promise<void>;
 	findActive(userId: string): Promise<SessionRecord | null>;
+	listAll(): Promise<SessionRecord[]>;
 	updateLastActive(id: string, timestamp: number): Promise<void>;
 }
 
@@ -41,6 +42,21 @@ export class FileSessionStore implements SessionStore {
 			}
 		}
 		return null;
+	}
+
+	async listAll(): Promise<SessionRecord[]> {
+		if (!existsSync(this.dir)) return [];
+		const files = readdirSync(this.dir).filter((f) => f.endsWith(".json"));
+		const sessions: SessionRecord[] = [];
+		for (const file of files) {
+			try {
+				const session = JSON.parse(readFileSync(join(this.dir, file), "utf-8")) as SessionRecord;
+				sessions.push(session);
+			} catch {
+				// skip corrupt files
+			}
+		}
+		return sessions.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
 	}
 
 	async updateLastActive(id: string, timestamp: number): Promise<void> {

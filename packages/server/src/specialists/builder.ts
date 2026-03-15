@@ -1,4 +1,4 @@
-import { generateId, type DomainEvent, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
+import { type DomainEvent, generateId, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
 
 // NOTE: @mariozechner/pi-agent-core needs to be installed by the user via npm
 // or linked from a local pi-mono workspace.
@@ -29,7 +29,7 @@ export class BuilderSpecialist implements SpecialistRunner {
 				// Yield progress event if needed, but since we don't have artifact.created
 				// we will just wait.
 				steps++;
-				await new Promise(resolve => setTimeout(resolve, 1500));
+				await new Promise((resolve) => setTimeout(resolve, 1500));
 			}
 
 			// Finalize task with success
@@ -40,17 +40,16 @@ export class BuilderSpecialist implements SpecialistRunner {
 				taskId: task.id,
 				result: {
 					summary: "Built project artifacts successfully using pi-agent-core mock.",
-					artifactIds: []
-				}
+					artifactIds: [],
+				},
 			} as DomainEvent;
-
 		} catch (error) {
 			yield {
 				type: "task.failed",
 				eventId: generateId("evt"),
 				timestamp: Date.now(),
 				taskId: task.id,
-				error: error instanceof Error ? error.message : String(error)
+				error: error instanceof Error ? error.message : String(error),
 			} as DomainEvent;
 		} finally {
 			this.runningTasks.delete(task.id);

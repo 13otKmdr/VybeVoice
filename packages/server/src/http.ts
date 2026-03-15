@@ -121,6 +121,11 @@ async function handleRequest(
 	const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 	const segments = url.pathname.split("/").filter(Boolean);
 
+	// GET /sessions (list all)
+	if (req.method === "GET" && segments.length === 1 && segments[0] === "sessions") {
+		return handleListSessions(res, ctx);
+	}
+
 	// POST /sessions
 	if (req.method === "POST" && segments.length === 1 && segments[0] === "sessions") {
 		return handleCreateSession(req, res, ctx, sessions);
@@ -154,6 +159,11 @@ async function handleRequest(
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
+
+async function handleListSessions(res: ServerResponse, ctx: OrchestratorContext): Promise<void> {
+	const sessions = await ctx.sessionStore.listAll();
+	sendJson(res, 200, { sessions });
+}
 
 async function handleCreateSession(
 	req: IncomingMessage,

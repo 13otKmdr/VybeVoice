@@ -83,6 +83,43 @@ Open [http://localhost:3000](http://localhost:3000) to use the browser voice con
 - Choose `MiniMax` if you only want typed fallback in the browser.
 - Delegated tasks stay attached to the same thread instead of moving into a separate dashboard.
 
+### Running in Docker (Sandboxed)
+
+Build and run in a fully isolated container:
+
+```bash
+# Build the image
+docker build -t voice-orchestrator .
+
+# Run with API key(s)
+docker run --rm -p 3000:3000 \
+  -e OPENAI_API_KEY=your_key_here \
+  -v vo-data:/app/data \
+  voice-orchestrator
+```
+
+Or use Docker Compose (reads keys from `.env` automatically):
+
+```bash
+# Create a .env file with your keys
+echo "OPENAI_API_KEY=your_key_here" > .env
+
+# Start
+docker compose up
+
+# Start in background
+docker compose up -d
+```
+
+The containerized server is accessible at [http://localhost:3000](http://localhost:3000) just like the local version.
+
+There are also npm convenience scripts:
+
+```bash
+npm run docker:build   # Build the image
+npm run docker:run     # Run with .env file
+```
+
 ### Try It
 
 ```bash

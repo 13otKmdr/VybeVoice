@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+output/
+.git/
+.gitignore
+.env
+.env.*
+*.md
+*.tsbuildinfo
+.agents/
+scripts/

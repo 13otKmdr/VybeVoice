@@ -1,4 +1,12 @@
-import { generateId, type DomainEvent, type EventLog, type SpecialistRunner, type TaskRecord, type TaskStatus, type TaskStore } from "@voice-orchestrator/core";
+import {
+	type DomainEvent,
+	type EventLog,
+	generateId,
+	type SpecialistRunner,
+	type TaskRecord,
+	type TaskStatus,
+	type TaskStore,
+} from "@voice-orchestrator/core";
 
 export interface TaskManagerOptions {
 	taskStore: TaskStore;
@@ -25,10 +33,10 @@ export class TaskManager {
 	start() {
 		if (this.interval) return;
 		this.interval = setInterval(() => {
-			this.tick().catch(err => console.error("[taskManager] tick error:", err));
+			this.tick().catch((err) => console.error("[taskManager] tick error:", err));
 		}, this.pollIntervalMs);
 		// Run once immediately
-		this.tick().catch(err => console.error("[taskManager] initial tick error:", err));
+		this.tick().catch((err) => console.error("[taskManager] initial tick error:", err));
 	}
 
 	stop() {
@@ -49,7 +57,7 @@ export class TaskManager {
 		for (const task of pendingTasks) {
 			if (this.runningTasks.has(task.id)) {
 				// Check for timeouts of currently running tasks
-				// The task.updatedAt might be updated when events fire, but let's check basic timeout against createdAt + timeoutMs for simplicity, 
+				// The task.updatedAt might be updated when events fire, but let's check basic timeout against createdAt + timeoutMs for simplicity,
 				// or when it transitioned to running. We'll use the last updated time.
 				if (now - task.updatedAt > task.timeoutMs) {
 					console.warn(`[taskManager] Task ${task.id} timed out.`);
@@ -60,7 +68,7 @@ export class TaskManager {
 
 			if (task.status === "queued" || task.status === "starting") {
 				// Resume or start
-				this.runTask(task).catch(err => console.error(`[taskManager] Execution failed for ${task.id}:`, err));
+				this.runTask(task).catch((err) => console.error(`[taskManager] Execution failed for ${task.id}:`, err));
 			} else if (task.status === "running") {
 				// It's marked running but not in runningTasks. Likely we restarted the server.
 				// Fail the task and attempt retry to be safe.
@@ -70,15 +78,15 @@ export class TaskManager {
 	}
 
 	private async runTask(task: TaskRecord) {
-		const specialist = this.specialists.find(s => s.canHandle(task));
-		
+		const specialist = this.specialists.find((s) => s.canHandle(task));
+
 		if (!specialist) {
 			await this.failTask(task, `No specialist available for kind: ${task.kind}`);
 			return;
 		}
 
 		await this.updateStatus(task, "starting");
-		
+
 		const controller = new AbortController();
 		this.runningTasks.set(task.id, controller);
 
@@ -101,15 +109,15 @@ export class TaskManager {
 					task.status = event.newStatus;
 					await this.taskStore.save(task);
 				}
-				
+
 				if (event.type === "task.failed" || event.type === "task.completed") {
 					// Subsystem emitted terminal event
 					task.status = event.type === "task.failed" ? "failed" : "completed";
-					if (event.type === "task.failed" && 'error' in event) {
+					if (event.type === "task.failed" && "error" in event) {
 						task.error = event.error as string;
 					}
 					await this.taskStore.save(task);
-					break; 
+					break;
 				}
 			}
 
@@ -117,7 +125,6 @@ export class TaskManager {
 			if (task.status === "running" || task.status === "starting") {
 				await this.completeTask(task);
 			}
-
 		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
 				await this.failTask(task, "Task aborted due to timeout");
@@ -142,17 +149,19 @@ export class TaskManager {
 			task.error = error;
 			task.updatedAt = Date.now();
 			await this.taskStore.save(task);
-			console.log(`[taskManager] Task ${task.id} failed, retrying (${task.retryCount}/${task.maxRetries}). Error: ${error}`);
+			console.log(
+				`[taskManager] Task ${task.id} failed, retrying (${task.retryCount}/${task.maxRetries}). Error: ${error}`,
+			);
 		} else {
 			task.status = "failed";
 			task.error = `Max retries reached. Last error: ${error}`;
 			task.updatedAt = Date.now();
 			await this.taskStore.save(task);
-			
+
 			await this.emitEvent({
 				type: "task.failed",
 				taskId: task.id,
-				error: task.error
+				error: task.error,
 			});
 			console.log(`[taskManager] Task ${task.id} failed permanently: ${task.error}`);
 		}
@@ -162,10 +171,10 @@ export class TaskManager {
 		task.status = "completed";
 		task.updatedAt = Date.now();
 		await this.taskStore.save(task);
-		
+
 		await this.emitEvent({
 			type: "task.completed",
-			taskId: task.id
+			taskId: task.id,
 		});
 		console.log(`[taskManager] Task ${task.id} completed successfully`);
 	}
@@ -175,20 +184,22 @@ export class TaskManager {
 		task.status = status;
 		task.updatedAt = Date.now();
 		await this.taskStore.save(task);
-		
+
 		await this.emitEvent({
 			type: "task.status_changed",
 			taskId: task.id,
 			previousStatus,
-			newStatus: status
+			newStatus: status,
 		});
 	}
 
-	private async emitEvent(partial: DomainEvent extends infer E ? (E extends DomainEvent ? Omit<E, "eventId" | "timestamp"> : never) : never) {
+	private async emitEvent(
+		partial: DomainEvent extends infer E ? (E extends DomainEvent ? Omit<E, "eventId" | "timestamp"> : never) : never,
+	) {
 		const event = {
 			...partial,
 			eventId: generateId("evt"),
-			timestamp: Date.now()
+			timestamp: Date.now(),
 		} as DomainEvent;
 		await this.eventLog.append(event);
 	}
