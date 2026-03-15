@@ -599,9 +599,9 @@ textarea {
 	background: transparent;
 	color: var(--text-primary);
 	font-size: 16px; /* Prevents iOS zoom */
-	line-height: 1.5;
-	padding: 10px 8px 10px 10px;
-	max-height: 140px;
+	line-height: 1.2;
+	padding: 2px 8px 2px 10px;
+	max-height: 70px;
 	resize: none;
 	outline: none;
 }
@@ -906,8 +906,8 @@ textarea {
 
 	.composer textarea {
 		font-size: 16px;
-		padding: 10px 6px 10px 10px;
-		max-height: 120px;
+		padding: 2px 6px 2px 10px;
+		max-height: 60px;
 	}
 
 	/* Keep buttons large for touch */
@@ -959,7 +959,7 @@ textarea {
 	}
 
 	.composer textarea {
-		padding: 8px 6px 8px 8px;
+		padding: 2px 6px 2px 8px;
 	}
 }
 
@@ -989,7 +989,7 @@ textarea {
 	}
 
 	.composer textarea {
-		max-height: 80px;
+		max-height: 40px;
 	}
 }
 
