@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import type { Command } from "commander";
 import ora from "ora";
 import { createBackendSpecialist } from "../backends/registry.js";
-import { resolveConfig, type VybeVoiceConfig, validateConfig } from "../config.js";
+import { resolveConfig, type VybeVoiceConfigOverrides, validateConfig } from "../config.js";
 import { error, hint, printBanner, printSummary, success } from "../ui.js";
 
 export function registerStartCommand(program: Command): void {
@@ -17,14 +17,14 @@ export function registerStartCommand(program: Command): void {
 			printBanner();
 
 			// Build overrides from CLI flags
-			const overrides: Partial<VybeVoiceConfig> = {};
-if (opts.port) {
-	overrides.server = { ...overrides.server, port: Number.parseInt(opts.port, 10) };
-}
-if (opts.provider) overrides.voice = { provider: opts.provider, apiKey: "" };
-if (opts.dataDir) {
-	overrides.server = { ...overrides.server, dataDir: opts.dataDir };
-}
+			const overrides: VybeVoiceConfigOverrides = {};
+			if (opts.port) {
+				overrides.server = { ...overrides.server, port: Number.parseInt(opts.port, 10) };
+			}
+			if (opts.provider) overrides.voice = { provider: opts.provider, apiKey: "" };
+			if (opts.dataDir) {
+				overrides.server = { ...overrides.server, dataDir: opts.dataDir };
+			}
 
 			const config = await resolveConfig(overrides);
 

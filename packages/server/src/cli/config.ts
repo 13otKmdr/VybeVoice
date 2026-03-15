@@ -65,6 +65,12 @@ export interface VybeVoiceConfig {
 	};
 }
 
+export interface VybeVoiceConfigOverrides {
+	voice?: Partial<VybeVoiceConfig["voice"]>;
+	agent?: Partial<VybeVoiceConfig["agent"]>;
+	server?: Partial<VybeVoiceConfig["server"]>;
+}
+
 // ── Defaults ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_CONFIG: VybeVoiceConfig = {
@@ -106,9 +112,9 @@ export async function saveConfig(config: VybeVoiceConfig): Promise<void> {
 
 // ── Resolve (merge: flags > env > file > defaults) ─────────────────────────
 
-export async function resolveConfig(overrides?: Partial<VybeVoiceConfig>): Promise<VybeVoiceConfig> {
+export async function resolveConfig(overrides?: VybeVoiceConfigOverrides): Promise<VybeVoiceConfig> {
 	const file = await loadConfig();
-const base = file ?? JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+	const base = file ?? JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 	// Apply env var overrides
 	if (process.env.MINIMAX_API_KEY) {
