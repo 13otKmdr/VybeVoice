@@ -206,9 +206,11 @@ elements.provider.addEventListener("change", () => {
 
 // ── Button events ───────────────────────────────────────────────────────
 
-elements.startSession.addEventListener("click", () => {
-	void startSession({ activateVoice: true });
-});
+if (elements.startSession) {
+	elements.startSession.addEventListener("click", () => {
+		void startSession({ activateVoice: true });
+	});
+}
 
 elements.stopSession.addEventListener("click", () => {
 	void stopSession();
