@@ -18,11 +18,13 @@ export function registerStartCommand(program: Command): void {
 
 			// Build overrides from CLI flags
 			const overrides: Partial<VybeVoiceConfig> = {};
-			if (opts.port) overrides.server = { port: Number.parseInt(opts.port, 10), dataDir: "" };
-			if (opts.provider) overrides.voice = { provider: opts.provider, apiKey: "" };
-			if (opts.dataDir) {
-				overrides.server = { ...overrides.server, port: 0, dataDir: opts.dataDir };
-			}
+if (opts.port) {
+	overrides.server = { ...overrides.server, port: Number.parseInt(opts.port, 10) };
+}
+if (opts.provider) overrides.voice = { provider: opts.provider, apiKey: "" };
+if (opts.dataDir) {
+	overrides.server = { ...overrides.server, dataDir: opts.dataDir };
+}
 
 			const config = await resolveConfig(overrides);
 
