@@ -37,6 +37,7 @@ const elements = {
 	sidebar: document.querySelector("#sidebar"),
 	sidebarToggle: document.querySelector("#sidebar-toggle"),
 	sidebarOpenBtn: document.querySelector("#sidebar-open-btn"),
+	sidebarBackdrop: document.querySelector("#sidebar-backdrop"),
 	newChatBtn: document.querySelector("#new-chat-btn"),
 };
 
@@ -52,15 +53,37 @@ elements.sidebarOpenBtn.addEventListener("click", () => {
 	toggleSidebar();
 });
 
+// Close sidebar when clicking backdrop (mobile)
+elements.sidebarBackdrop.addEventListener("click", () => {
+	closeSidebar();
+});
+
 function toggleSidebar() {
 	const sidebar = elements.sidebar;
 	const openBtn = elements.sidebarOpenBtn;
-	sidebar.classList.toggle("collapsed");
-	if (sidebar.classList.contains("collapsed")) {
-		openBtn.classList.remove("hidden");
-	} else {
+	const backdrop = elements.sidebarBackdrop;
+	
+	const isCollapsed = sidebar.classList.contains("collapsed");
+	
+	if (isCollapsed) {
+		sidebar.classList.remove("collapsed");
 		openBtn.classList.add("hidden");
+		backdrop.classList.add("visible");
+	} else {
+		sidebar.classList.add("collapsed");
+		openBtn.classList.remove("hidden");
+		backdrop.classList.remove("visible");
 	}
+}
+
+function closeSidebar() {
+	const sidebar = elements.sidebar;
+	const openBtn = elements.sidebarOpenBtn;
+	const backdrop = elements.sidebarBackdrop;
+	
+	sidebar.classList.add("collapsed");
+	openBtn.classList.remove("hidden");
+	backdrop.classList.remove("visible");
 }
 
 // ── New chat button ─────────────────────────────────────────────────────

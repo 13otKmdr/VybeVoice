@@ -39,6 +39,9 @@
 	--radius-xl: 24px;
 
 	--transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+	/* Touch-friendly sizing */
+	--touch-target: 44px;
 }
 
 *,
@@ -59,6 +62,8 @@ html, body {
 	background: var(--bg-primary);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	/* Prevent iOS zoom on input focus */
+	-webkit-text-size-adjust: 100%;
 }
 
 button {
@@ -69,6 +74,8 @@ button {
 	background: none;
 	color: inherit;
 	outline: none;
+	/* Prevent double-tap zoom on iOS */
+	touch-action: manipulation;
 }
 
 button:focus-visible {
@@ -78,12 +85,12 @@ button:focus-visible {
 
 input, select, textarea {
 	font-family: inherit;
-	font-size: 13px;
+	font-size: 16px; /* Prevents iOS zoom on focus */
 	color: var(--text-primary);
 	background: var(--bg-hover);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-sm);
-	padding: 7px 10px;
+	padding: 10px 12px;
 	outline: none;
 	transition: border-color var(--transition);
 	width: 100%;
@@ -98,8 +105,8 @@ select {
 	appearance: none;
 	background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23A0A0A0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
-	background-position: right 10px center;
-	padding-right: 28px;
+	background-position: right 12px center;
+	padding-right: 32px;
 }
 
 textarea {
@@ -111,8 +118,26 @@ textarea {
 .app-layout {
 	display: flex;
 	height: 100vh;
+	height: 100dvh; /* Dynamic viewport height for mobile */
 	width: 100vw;
 	overflow: hidden;
+}
+
+/* ─── Sidebar Backdrop (mobile) ───────────────────────────────────────── */
+
+.sidebar-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	z-index: 90;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity var(--transition), visibility var(--transition);
+}
+
+.sidebar-backdrop.visible {
+	opacity: 1;
+	visibility: visible;
 }
 
 /* ─── Sidebar ─────────────────────────────────────────────────────────── */
@@ -121,17 +146,18 @@ textarea {
 	width: var(--sidebar-width);
 	min-width: var(--sidebar-width);
 	height: 100vh;
+	height: 100dvh;
 	background: var(--bg-sidebar);
 	border-right: 1px solid var(--border);
 	display: flex;
 	flex-direction: column;
-	transition: margin-left var(--transition), opacity var(--transition);
+	transition: transform var(--transition), opacity var(--transition);
 	overflow: hidden;
-	z-index: 10;
+	z-index: 100;
 }
 
 .sidebar.collapsed {
-	margin-left: calc(-1 * var(--sidebar-width));
+	transform: translateX(-100%);
 	opacity: 0;
 	pointer-events: none;
 }
@@ -145,8 +171,8 @@ textarea {
 }
 
 .sidebar-toggle {
-	width: 32px;
-	height: 32px;
+	width: var(--touch-target);
+	height: var(--touch-target);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -165,13 +191,14 @@ textarea {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 7px 12px;
+	padding: 10px 12px;
 	border-radius: var(--radius-sm);
 	font-size: 13px;
 	font-weight: 500;
 	color: var(--text-primary);
 	border: 1px solid var(--border-strong);
 	transition: background var(--transition);
+	min-height: var(--touch-target);
 }
 
 .new-chat-btn:hover {
@@ -182,6 +209,7 @@ textarea {
 	flex: 1;
 	overflow-y: auto;
 	padding: 16px 12px;
+	-webkit-overflow-scrolling: touch;
 }
 
 .sidebar-label {
@@ -196,17 +224,17 @@ textarea {
 .sidebar-fields {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 14px;
 }
 
 .field {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 6px;
 }
 
 .field-label {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 500;
 	color: var(--text-secondary);
 }
@@ -228,8 +256,8 @@ textarea {
 	position: fixed;
 	top: 12px;
 	left: 12px;
-	width: 32px;
-	height: 32px;
+	width: var(--touch-target);
+	height: var(--touch-target);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -258,6 +286,7 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
+	height: 100dvh;
 	overflow: hidden;
 	min-width: 0;
 }
@@ -268,9 +297,9 @@ textarea {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 20px;
+	padding: 10px 16px;
 	border-bottom: 1px solid var(--border);
-	min-height: 48px;
+	min-height: 56px;
 	flex-shrink: 0;
 }
 
@@ -281,9 +310,9 @@ textarea {
 }
 
 .model-label {
-	font-size: 13px;
-	font-weight: 500;
-	color: var(--text-secondary);
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text-primary);
 }
 
 .chat-header-right {
@@ -295,7 +324,7 @@ textarea {
 .status-pill {
 	font-size: 11px;
 	font-weight: 600;
-	padding: 2px 8px;
+	padding: 4px 10px;
 	border-radius: 100px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -351,10 +380,11 @@ textarea {
 .chat-messages {
 	flex: 1;
 	overflow-y: auto;
-	padding: 24px 20px;
+	padding: 20px 16px;
 	display: flex;
 	flex-direction: column;
 	gap: 0;
+	-webkit-overflow-scrolling: touch;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -380,12 +410,13 @@ textarea {
 	gap: 12px;
 	color: var(--text-tertiary);
 	text-align: center;
-	padding-bottom: 80px;
+	padding: 20px;
+	padding-bottom: 100px;
 }
 
 .empty-icon {
-	width: 56px;
-	height: 56px;
+	width: 64px;
+	height: 64px;
 	border-radius: 50%;
 	background: var(--bg-hover);
 	display: flex;
@@ -402,8 +433,9 @@ textarea {
 }
 
 .empty-state p {
-	font-size: 14px;
+	font-size: 15px;
 	color: var(--text-tertiary);
+	line-height: 1.5;
 }
 
 /* Message items */
@@ -422,12 +454,12 @@ textarea {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	margin-bottom: 6px;
+	margin-bottom: 8px;
 }
 
 .message-avatar {
-	width: 24px;
-	height: 24px;
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
@@ -448,16 +480,16 @@ textarea {
 }
 
 .message-role {
-	font-size: 13px;
+	font-size: 14px;
 	font-weight: 600;
 	color: var(--text-primary);
 }
 
 .message-body {
-	font-size: 14px;
+	font-size: 15px;
 	line-height: 1.7;
 	color: var(--text-primary);
-	padding-left: 34px;
+	padding-left: 38px;
 	word-wrap: break-word;
 	white-space: pre-wrap;
 }
@@ -487,14 +519,14 @@ textarea {
 	background: var(--bg-hover);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-md);
-	padding: 12px 16px;
+	padding: 14px 16px;
 }
 
 .task-topline {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 6px;
+	margin-bottom: 8px;
 }
 
 .task-kind {
@@ -508,7 +540,7 @@ textarea {
 .task-status {
 	font-size: 11px;
 	font-weight: 600;
-	padding: 2px 8px;
+	padding: 4px 10px;
 	border-radius: 100px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -521,7 +553,7 @@ textarea {
 .task-status.status-failed { background: rgba(248, 113, 113, 0.15); color: var(--red); }
 
 .task-intent {
-	font-size: 13px;
+	font-size: 14px;
 	color: var(--text-primary);
 	line-height: 1.5;
 }
@@ -529,7 +561,7 @@ textarea {
 .task-meta {
 	font-size: 11px;
 	color: var(--text-tertiary);
-	margin-top: 6px;
+	margin-top: 8px;
 	font-family: var(--font-mono);
 }
 
@@ -537,8 +569,10 @@ textarea {
 
 .composer-wrapper {
 	flex-shrink: 0;
-	padding: 0 20px 16px;
+	padding: 0 16px 16px;
 	width: 100%;
+	/* Safe area for iOS home indicator */
+	padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .composer {
@@ -550,7 +584,7 @@ textarea {
 	background: var(--bg-composer);
 	border: 1px solid var(--border-strong);
 	border-radius: var(--radius-xl);
-	padding: 6px 6px 6px 4px;
+	padding: 8px 8px 8px 6px;
 	transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -564,10 +598,10 @@ textarea {
 	border: none;
 	background: transparent;
 	color: var(--text-primary);
-	font-size: 14px;
+	font-size: 16px; /* Prevents iOS zoom */
 	line-height: 1.5;
-	padding: 8px 4px 8px 8px;
-	max-height: 160px;
+	padding: 10px 8px 10px 10px;
+	max-height: 140px;
 	resize: none;
 	outline: none;
 }
@@ -584,8 +618,8 @@ textarea {
 }
 
 .composer-action-btn {
-	width: 36px;
-	height: 36px;
+	width: var(--touch-target);
+	height: var(--touch-target);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -614,8 +648,8 @@ textarea {
 }
 
 .send-btn {
-	width: 36px;
-	height: 36px;
+	width: var(--touch-target);
+	height: var(--touch-target);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -636,19 +670,22 @@ textarea {
 
 .composer-meta {
 	max-width: var(--chat-max-width);
-	margin: 6px auto 0;
+	margin: 8px auto 0;
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 0 8px;
+	padding: 0 10px;
 }
 
 .meta-action {
-	font-size: 12px;
+	font-size: 13px;
 	color: var(--text-tertiary);
 	cursor: pointer;
 	transition: color var(--transition);
-	padding: 0;
+	padding: 8px 0;
+	min-height: var(--touch-target);
+	display: flex;
+	align-items: center;
 }
 
 .meta-action:hover:not(:disabled) {
@@ -666,34 +703,217 @@ textarea {
 	opacity: 0.5;
 }
 
-/* ─── Responsive ──────────────────────────────────────────────────────── */
+/* ─── Responsive: Tablet (768px) ──────────────────────────────────────── */
 
 @media (max-width: 768px) {
 	.sidebar {
 		position: fixed;
 		left: 0;
 		top: 0;
-		z-index: 100;
 		box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
 	}
 
 	.sidebar.collapsed {
-		margin-left: calc(-1 * var(--sidebar-width));
+		transform: translateX(-100%);
 	}
 
 	.status-text {
 		display: none;
 	}
+}
 
-	.chat-header {
-		padding: 10px 14px;
+/* ─── Responsive: Mobile (480px and below) ────────────────────────────── */
+
+@media (max-width: 480px) {
+	:root {
+		--sidebar-width: 85vw;
+		--sidebar-max-width: 300px;
 	}
 
+	/* Sidebar slides in from left */
+	.sidebar {
+		position: fixed;
+		width: var(--sidebar-width);
+		max-width: var(--sidebar-max-width);
+		min-width: unset;
+		box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+	}
+
+	.sidebar.collapsed {
+		transform: translateX(-100%);
+	}
+
+	/* Show sidebar open button on mobile */
+	.sidebar-open-btn {
+		top: 8px;
+		left: 8px;
+	}
+
+	/* Header adjustments */
+	.chat-header {
+		padding: 8px 12px;
+		padding-left: 60px; /* Space for sidebar toggle */
+		min-height: 52px;
+	}
+
+	.model-label {
+		font-size: 15px;
+	}
+
+	.status-pill {
+		font-size: 10px;
+		padding: 4px 8px;
+	}
+
+	/* Messages */
 	.chat-messages {
-		padding: 16px 14px;
+		padding: 16px 12px;
+	}
+
+	.empty-state {
+		padding: 16px;
+		padding-bottom: 80px;
+	}
+
+	.empty-icon {
+		width: 56px;
+		height: 56px;
+	}
+
+	.empty-state h2 {
+		font-size: 18px;
+	}
+
+	.empty-state p {
+		font-size: 14px;
+	}
+
+	.message-row {
+		padding: 14px 0;
+	}
+
+	.message-body {
+		font-size: 15px;
+		padding-left: 38px;
+	}
+
+	/* Composer - more compact on mobile */
+	.composer-wrapper {
+		padding: 0 12px 12px;
+		padding-bottom: max(12px, env(safe-area-inset-bottom));
+	}
+
+	.composer {
+		padding: 6px 6px 6px 4px;
+		border-radius: var(--radius-lg);
+	}
+
+	.composer textarea {
+		font-size: 16px;
+		padding: 10px 6px 10px 10px;
+		max-height: 120px;
+	}
+
+	/* Keep buttons large for touch */
+	.composer-action-btn,
+	.send-btn {
+		width: var(--touch-target);
+		height: var(--touch-target);
+	}
+
+	.composer-meta {
+		padding: 0 8px;
+		margin-top: 6px;
+	}
+
+	.meta-action {
+		font-size: 12px;
+		padding: 6px 0;
+	}
+
+	/* Task cards */
+	.task-card {
+		padding: 12px 14px;
+	}
+
+	.task-intent {
+		font-size: 13px;
+	}
+}
+
+/* ─── Responsive: Very small screens (360px and below) ─────────────────── */
+
+@media (max-width: 360px) {
+	.chat-header {
+		padding: 6px 10px;
+		padding-left: 56px;
+		min-height: 48px;
+	}
+
+	.model-label {
+		font-size: 14px;
 	}
 
 	.composer-wrapper {
-		padding: 0 14px 12px;
+		padding: 0 10px 10px;
+	}
+
+	.composer {
+		padding: 4px 4px 4px 2px;
+	}
+
+	.composer textarea {
+		padding: 8px 6px 8px 8px;
+	}
+}
+
+/* ─── Landscape mobile adjustments ─────────────────────────────────────── */
+
+@media (max-width: 896px) and (orientation: landscape) {
+	.chat-messages {
+		padding-top: 12px;
+		padding-bottom: 12px;
+	}
+
+	.empty-state {
+		padding-bottom: 60px;
+	}
+
+	.empty-icon {
+		width: 48px;
+		height: 48px;
+	}
+
+	.empty-state h2 {
+		font-size: 16px;
+	}
+
+	.composer-wrapper {
+		padding-bottom: max(8px, env(safe-area-inset-bottom));
+	}
+
+	.composer textarea {
+		max-height: 80px;
+	}
+}
+
+/* ─── High contrast / accessibility improvements ───────────────────────── */
+
+@media (prefers-contrast: high) {
+	:root {
+		--border: rgba(255, 255, 255, 0.2);
+		--border-strong: rgba(255, 255, 255, 0.3);
+	}
+}
+
+/* ─── Reduce motion for users who prefer it ────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
 	}
 }
