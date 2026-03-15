@@ -93,6 +93,37 @@ export const DEFAULT_CONFIG: VybeVoiceConfig = {
 	},
 };
 
+export function getDefaultBackendOptions(backend: BackendName): BackendOptions {
+	switch (backend) {
+		case "openclaw":
+			return {
+				url: "http://127.0.0.1:18789",
+				token: "",
+				agentId: "main",
+			} satisfies OpenClawOptions;
+		case "claude-code":
+			return {
+				binaryPath: "claude",
+				workingDirectory: process.cwd(),
+			} satisfies ClaudeCodeOptions;
+		case "codex":
+			return {
+				apiKey: "",
+				workingDirectory: process.cwd(),
+				model: "codex-mini",
+			} satisfies CodexOptions;
+		case "pyagent":
+			return {
+				url: "http://127.0.0.1:8000",
+				token: "",
+			} satisfies PyAgentOptions;
+		case "custom":
+			return {
+				url: "",
+			} satisfies CustomOptions;
+	}
+}
+
 // ── Load / Save ─────────────────────────────────────────────────────────────
 
 export async function loadConfig(): Promise<VybeVoiceConfig | null> {
@@ -125,13 +156,6 @@ export async function resolveConfig(overrides?: VybeVoiceConfigOverrides): Promi
 		base.voice.apiKey = process.env.OPENAI_API_KEY;
 	}
 
-	if (process.env.OPENCLAW_GATEWAY_URL && base.agent.backend === "openclaw") {
-		(base.agent.options as OpenClawOptions).url = process.env.OPENCLAW_GATEWAY_URL;
-	}
-	if (process.env.OPENCLAW_GATEWAY_TOKEN && base.agent.backend === "openclaw") {
-		(base.agent.options as OpenClawOptions).token = process.env.OPENCLAW_GATEWAY_TOKEN;
-	}
-
 	if (process.env.PORT) {
 		base.server.port = Number.parseInt(process.env.PORT, 10);
 	}
@@ -141,8 +165,9 @@ export async function resolveConfig(overrides?: VybeVoiceConfigOverrides): Promi
 
 	// Apply programmatic overrides (CLI flags)
 	if (overrides?.voice) Object.assign(base.voice, overrides.voice);
-	if (overrides?.agent) Object.assign(base.agent, overrides.agent);
 	if (overrides?.server) Object.assign(base.server, overrides.server);
+	applyAgentOverrides(base, overrides?.agent);
+	applyAgentEnvOverrides(base, overrides?.agent);
 
 	return base as VybeVoiceConfig;
 }
@@ -185,4 +210,38 @@ export function maskKey(key: string): string {
 
 export function configExists(): boolean {
 	return existsSync(CONFIG_PATH);
+}
+
+function applyAgentOverrides(config: VybeVoiceConfig, overrides?: Partial<VybeVoiceConfig["agent"]>): void {
+	if (!overrides) return;
+
+	if (overrides.backend && overrides.backend !== config.agent.backend) {
+		config.agent = {
+			backend: overrides.backend,
+			options: overrides.options ?? getDefaultBackendOptions(overrides.backend),
+		};
+		return;
+	}
+
+	if (overrides.backend) {
+		config.agent.backend = overrides.backend;
+	}
+	if (overrides.options) {
+		config.agent.options = overrides.options;
+	}
+}
+
+function applyAgentEnvOverrides(
+	config: VybeVoiceConfig,
+	overrides?: Partial<VybeVoiceConfig["agent"]>,
+): void {
+	if (config.agent.backend !== "openclaw" || overrides?.options) return;
+
+	const opts = config.agent.options as OpenClawOptions;
+	if (process.env.OPENCLAW_GATEWAY_URL) {
+		opts.url = process.env.OPENCLAW_GATEWAY_URL;
+	}
+	if (process.env.OPENCLAW_GATEWAY_TOKEN) {
+		opts.token = process.env.OPENCLAW_GATEWAY_TOKEN;
+	}
 }

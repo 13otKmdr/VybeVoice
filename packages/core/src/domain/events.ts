@@ -46,11 +46,13 @@ export interface TurnEnded extends DomainEventBase {
 
 export interface TaskCreated extends DomainEventBase {
 	type: "task.created";
+	sessionId: string;
 	task: TaskRecord;
 }
 
 export interface TaskStatusChanged extends DomainEventBase {
 	type: "task.status_changed";
+	sessionId: string;
 	taskId: string;
 	previousStatus: TaskStatus;
 	newStatus: TaskStatus;
@@ -58,12 +60,14 @@ export interface TaskStatusChanged extends DomainEventBase {
 
 export interface TaskCompleted extends DomainEventBase {
 	type: "task.completed";
+	sessionId: string;
 	taskId: string;
 	result?: TaskResult;
 }
 
 export interface TaskFailed extends DomainEventBase {
 	type: "task.failed";
+	sessionId: string;
 	taskId: string;
 	error: string;
 }

@@ -78,7 +78,9 @@ export class TaskManager {
 	}
 
 	private async runTask(task: TaskRecord) {
-		const specialist = this.specialists.find((s) => s.canHandle(task));
+		const specialist =
+			this.specialists.find((s) => s.kind === task.kind && s.canHandle(task)) ??
+			this.specialists.find((s) => s.canHandle(task));
 
 		if (!specialist) {
 			await this.failTask(task, `No specialist available for kind: ${task.kind}`);
@@ -160,6 +162,7 @@ export class TaskManager {
 
 			await this.emitEvent({
 				type: "task.failed",
+				sessionId: task.sessionId,
 				taskId: task.id,
 				error: task.error,
 			});
@@ -174,6 +177,7 @@ export class TaskManager {
 
 		await this.emitEvent({
 			type: "task.completed",
+			sessionId: task.sessionId,
 			taskId: task.id,
 		});
 		console.log(`[taskManager] Task ${task.id} completed successfully`);
@@ -187,6 +191,7 @@ export class TaskManager {
 
 		await this.emitEvent({
 			type: "task.status_changed",
+			sessionId: task.sessionId,
 			taskId: task.id,
 			previousStatus,
 			newStatus: status,

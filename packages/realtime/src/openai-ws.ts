@@ -4,6 +4,7 @@ import type { RealtimeConfig, RealtimeEvent, RealtimeTransport, TransportState }
 const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime";
 const DEFAULT_OUTPUT_MODALITIES: ("text" | "audio")[] = ["audio"];
 const DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 
 export class OpenAIWebSocketTransport implements RealtimeTransport {
 	private ws: WebSocket | null = null;
@@ -23,32 +24,98 @@ export class OpenAIWebSocketTransport implements RealtimeTransport {
 
 		return new Promise((resolve, reject) => {
 			const url = `${OPENAI_REALTIME_URL}?model=${encodeURIComponent(config.model)}`;
-			this.ws = new WebSocket(url, {
+			const ws = new WebSocket(url, {
 				headers: {
 					Authorization: `Bearer ${config.apiKey}`,
 				},
 			});
+			this.ws = ws;
 
-			this.ws.on("open", () => {
-				this._state = "connected";
-				this.sendSessionUpdate(config);
+			let settled = false;
+			let timeoutId: NodeJS.Timeout;
+
+			const resolveConnect = () => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timeoutId);
 				resolve();
+			};
+
+			const rejectConnect = (err: Error) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timeoutId);
+				reject(err);
+			};
+
+			timeoutId = setTimeout(() => {
+				if (this.ws === ws) {
+					this._state = "error";
+					this.ws = null;
+				}
+
+				ws.terminate();
+				rejectConnect(new Error(`OpenAI Realtime WebSocket connect timeout after ${DEFAULT_CONNECT_TIMEOUT_MS}ms`));
+			}, DEFAULT_CONNECT_TIMEOUT_MS);
+
+			ws.on("open", () => {
+				if (settled) {
+					ws.close();
+					return;
+				}
+
+				this._state = "connected";
+				try {
+					this.sendSessionUpdate(config);
+					resolveConnect();
+				} catch (err) {
+					if (this.ws === ws) {
+						this._state = "error";
+						this.ws = null;
+					}
+
+					ws.close();
+					rejectConnect(err instanceof Error ? err : new Error(String(err)));
+				}
 			});
 
-			this.ws.on("message", (data) => {
+			ws.on("message", (data) => {
 				this.handleMessage(data);
 			});
 
-			this.ws.on("close", (code, reason) => {
-				this._state = "disconnected";
-				this.emit({ type: "connection.closed", code, reason: reason.toString() });
+			ws.on("close", (code, reason) => {
+				const reasonText = reason.toString();
+				const isCurrentSocket = this.ws === ws;
+
+				if (isCurrentSocket) {
+					this.ws = null;
+				}
+
+				if (!settled) {
+					if (isCurrentSocket) {
+						this._state = "error";
+					}
+
+					const message = reasonText
+						? `OpenAI Realtime WebSocket closed before connect completed (code: ${code}, reason: ${reasonText})`
+						: `OpenAI Realtime WebSocket closed before connect completed (code: ${code})`;
+					rejectConnect(new Error(message));
+				} else if (isCurrentSocket) {
+					this._state = "disconnected";
+				}
+
+				this.emit({ type: "connection.closed", code, reason: reasonText });
 			});
 
-			this.ws.on("error", (err) => {
-				this._state = "error";
-				if (this.ws?.readyState !== WebSocket.OPEN) {
-					reject(err);
+			ws.on("error", (err) => {
+				if (this.ws === ws) {
+					this._state = "error";
 				}
+
+				if (!settled) {
+					rejectConnect(err);
+				}
+
 				this.emit({ type: "error", code: "websocket_error", message: err.message });
 			});
 		});

@@ -37,6 +37,7 @@ export class BuilderSpecialist implements SpecialistRunner {
 				type: "task.completed",
 				eventId: generateId("evt"),
 				timestamp: Date.now(),
+				sessionId: task.sessionId,
 				taskId: task.id,
 				result: {
 					summary: "Built project artifacts successfully using pi-agent-core mock.",
@@ -48,6 +49,7 @@ export class BuilderSpecialist implements SpecialistRunner {
 				type: "task.failed",
 				eventId: generateId("evt"),
 				timestamp: Date.now(),
+				sessionId: task.sessionId,
 				taskId: task.id,
 				error: error instanceof Error ? error.message : String(error),
 			} as DomainEvent;

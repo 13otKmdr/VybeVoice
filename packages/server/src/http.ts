@@ -350,7 +350,7 @@ async function handleSessionSocketConnection(
 	});
 
 	const unsubscribeDomain = ctx.eventLog.subscribe((event) => {
-		void forwardDomainEvent(ws, ctx, sessionId, event);
+		void forwardDomainEvent(ws, sessionId, event);
 	});
 
 	ws.on("message", (data) => {
@@ -468,29 +468,15 @@ function rejectUpgrade(socket: Duplex, status: number, reason: string): void {
 	socket.destroy();
 }
 
-async function forwardDomainEvent(
-	ws: WebSocket,
-	ctx: OrchestratorContext,
-	sessionId: string,
-	event: DomainEvent,
-): Promise<void> {
-	if (await eventBelongsToSession(ctx, event, sessionId)) {
+async function forwardDomainEvent(ws: WebSocket, sessionId: string, event: DomainEvent): Promise<void> {
+	if (eventBelongsToSession(event, sessionId)) {
 		sendSocketJson(ws, { type: "domain.event", event });
 	}
 }
 
-async function eventBelongsToSession(
-	ctx: OrchestratorContext,
-	event: DomainEvent,
-	sessionId: string,
-): Promise<boolean> {
+function eventBelongsToSession(event: DomainEvent, sessionId: string): boolean {
 	if ("sessionId" in event) return event.sessionId === sessionId;
 	if ("session" in event) return event.session.id === sessionId;
-	if ("task" in event) return event.task.sessionId === sessionId;
-	if ("taskId" in event) {
-		const task = await ctx.taskStore.get(event.taskId);
-		return task?.sessionId === sessionId;
-	}
 	return false;
 }
 

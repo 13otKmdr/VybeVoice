@@ -45,6 +45,7 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 	private listeners = new Set<(event: RealtimeEvent) => void>();
 	private _state: TransportState = "disconnected";
 	private textBuffer = "";
+	private responseText = "";
 	private pendingToolCalls = new Map<string, { resolve: () => void }>();
 	private toolCallPromises: Promise<void>[] = [];
 
@@ -140,6 +141,7 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 		this.chat.abort();
 		this.tts.finishTask();
 		this.textBuffer = "";
+		this.responseText = "";
 		this.emit({ type: "response.done", status: "cancelled" });
 	}
 
@@ -179,6 +181,7 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 
 	private async processMessage(text: string): Promise<void> {
 		this.chat.addUserMessage(text);
+		this.responseText = "";
 		await this.runChatAndTTS();
 	}
 
@@ -197,6 +200,7 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 				case "text_delta": {
 					// Emit text event for the orchestrator
 					this.emit({ type: "response.text.delta", delta: event.content });
+					this.responseText += event.content;
 					this.textBuffer += event.content;
 
 					// Start TTS task lazily on first text
@@ -257,7 +261,6 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 						this.textBuffer = "";
 					}
 
-					this.emit({ type: "response.text.done", text: "" });
 					break;
 				}
 			}
@@ -274,6 +277,7 @@ export class MiniMaxCompositeTransport implements RealtimeTransport {
 			this.toolCallPromises = [];
 			await this.runChatAndTTS();
 		} else {
+			this.emit({ type: "response.text.done", text: this.responseText });
 			this.emit({ type: "response.done", status: "completed" });
 		}
 	}

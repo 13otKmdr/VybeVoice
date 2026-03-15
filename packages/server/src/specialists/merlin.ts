@@ -44,6 +44,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 
 		yield {
 			type: "task.status_changed",
+			sessionId: task.sessionId,
 			taskId: task.id,
 			eventId: generateId("evt"),
 			timestamp: now,
@@ -84,6 +85,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 
 			yield {
 				type: "task.completed",
+				sessionId: task.sessionId,
 				taskId: task.id,
 				eventId: generateId("evt"),
 				timestamp: Date.now(),
@@ -98,6 +100,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 			if (message.includes("abort")) {
 				yield {
 					type: "task.status_changed",
+					sessionId: task.sessionId,
 					taskId: task.id,
 					eventId: generateId("evt"),
 					timestamp: Date.now(),
@@ -107,6 +110,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 			} else {
 				yield {
 					type: "task.failed",
+					sessionId: task.sessionId,
 					taskId: task.id,
 					eventId: generateId("evt"),
 					timestamp: Date.now(),

@@ -286,6 +286,7 @@ export class MerlinOrchestrator {
 
 		await this.emitEvent({
 			type: "task.created",
+			sessionId: this.session.id,
 			task,
 		});
 
