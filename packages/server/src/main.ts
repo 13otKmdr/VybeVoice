@@ -7,6 +7,7 @@ import {
 } from "@voice-orchestrator/core";
 import { resolve } from "path";
 import { BuilderSpecialist } from "./specialists/builder.js";
+import { MerlinSpecialist } from "./specialists/merlin.js";
 import { TaskManager } from "./task-manager.js";
 
 export interface OrchestratorContext {
@@ -42,11 +43,12 @@ async function main(): Promise<void> {
 
 	// Instantiate capabilities
 	const builderSpecialist = new BuilderSpecialist();
+	const merlinSpecialist = new MerlinSpecialist();
 	
 	const taskManager = new TaskManager({
 		taskStore: ctx.taskStore,
 		eventLog: ctx.eventLog,
-		specialists: [builderSpecialist],
+		specialists: [merlinSpecialist, builderSpecialist],
 		pollIntervalMs: 2000
 	});
 
