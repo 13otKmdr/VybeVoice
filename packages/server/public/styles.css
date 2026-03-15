@@ -821,12 +821,12 @@ textarea {
 	max-width: var(--chat-max-width);
 	margin: 0 auto;
 	display: flex;
-	align-items: flex-end;
-	gap: 0;
+	align-items: center;
+	gap: 4px;
 	background: var(--bg-composer);
 	border: 1px solid var(--border-strong);
 	border-radius: var(--radius-xl);
-	padding: 8px 8px 8px 6px;
+	padding: 4px 5px 4px 4px;
 	transition: border-color var(--transition), box-shadow var(--transition);
 }
 
@@ -841,9 +841,10 @@ textarea {
 	background: transparent;
 	color: var(--text-primary);
 	font-size: 16px; /* Prevents iOS zoom */
-	line-height: 1.2;
-	padding: 2px 8px 2px 10px;
-	max-height: 70px;
+	line-height: 1.15;
+	padding: 0 8px;
+	min-height: 34px;
+	max-height: 60px;
 	resize: none;
 	outline: none;
 }
@@ -902,7 +903,7 @@ textarea {
 	background: #8B5CF6;
 	color: #fff;
 	transition: background var(--transition), opacity var(--transition), transform var(--transition), box-shadow var(--transition);
-	cursor: grab;
+	cursor: pointer;
 	touch-action: pan-y;
 }
 
@@ -932,40 +933,55 @@ textarea {
 	transform: scale(1.15);
 }
 
-.send-btn.voice-active {
-	background: #A78BFA;
-	box-shadow: 0 0 16px rgba(167, 139, 250, 0.5);
-}
-
-/* Equalizer bars inside send button during voice mode */
-.send-btn .equalizer {
-	display: none;
-	position: absolute;
-	flex-direction: row;
-	align-items: center;
-	justify-content: center;
-	gap: 2px;
-	height: 100%;
-	width: 100%;
-	top: 0;
-	left: 0;
-	pointer-events: none;
-}
-
-.send-btn.voice-active .equalizer {
-	display: flex;
-}
-
-.send-btn.voice-active .send-icon {
-	display: none;
-}
-
 /* Ensure touch events pass through to button */
 .send-btn svg {
 	pointer-events: none;
 }
 
-.send-btn .eq-bar {
+.voice-btn {
+	width: var(--touch-target);
+	height: var(--touch-target);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: linear-gradient(180deg, #DA7756 0%, #C86848 100%);
+	color: #fff;
+	transition: background var(--transition), opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+	box-shadow: 0 0 0 rgba(218, 119, 86, 0);
+}
+
+.voice-btn:hover:not(:disabled) {
+	background: linear-gradient(180deg, #E08B6D 0%, #D87453 100%);
+	box-shadow: 0 0 14px rgba(218, 119, 86, 0.35);
+}
+
+.voice-btn:active:not(:disabled) {
+	transform: scale(1.03);
+}
+
+.voice-btn.voice-active {
+	box-shadow: 0 0 18px rgba(218, 119, 86, 0.45);
+	background: linear-gradient(180deg, #E08B6D 0%, #D36E4E 100%);
+}
+
+.voice-btn:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+
+.voice-btn .equalizer {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	gap: 3px;
+	height: 18px;
+	pointer-events: none;
+}
+
+.voice-btn .eq-bar {
 	width: 3px;
 	background: #fff;
 	border-radius: 2px;
@@ -1152,19 +1168,21 @@ textarea {
 	}
 
 	.composer {
-		padding: 6px 6px 6px 4px;
+		padding: 4px;
 		border-radius: var(--radius-lg);
 	}
 
 	.composer textarea {
 		font-size: 16px;
-		padding: 2px 6px 2px 10px;
-		max-height: 60px;
+		padding: 0 6px;
+		min-height: 32px;
+		max-height: 52px;
 	}
 
 	/* Keep buttons large for touch */
 	.composer-action-btn,
-	.send-btn {
+	.send-btn,
+	.voice-btn {
 		width: var(--touch-target);
 		height: var(--touch-target);
 	}
@@ -1207,11 +1225,11 @@ textarea {
 	}
 
 	.composer {
-		padding: 4px 4px 4px 2px;
+		padding: 3px;
 	}
 
 	.composer textarea {
-		padding: 2px 6px 2px 8px;
+		padding: 0 5px;
 	}
 }
 
@@ -1241,7 +1259,7 @@ textarea {
 	}
 
 	.composer textarea {
-		max-height: 40px;
+		max-height: 36px;
 	}
 }
 

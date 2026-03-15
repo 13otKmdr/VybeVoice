@@ -154,7 +154,7 @@
 				<div class="composer-wrapper">
 					<div class="composer" id="composer">
 						<div class="composer-actions-left">
-							<button id="send-text" class="send-btn" title="Send message or slide for voice">
+							<button id="send-text" class="send-btn" title="Send message. Slide right for voice." aria-label="Send message">
 								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<line x1="12" y1="19" x2="12" y2="5"/>
 									<polyline points="5 12 12 5 19 12"/>
@@ -164,8 +164,18 @@
 						<textarea
 							id="text-message"
 							rows="1"
-							placeholder="Text here or slide for voice"
+							placeholder="Type a message or use voice"
 						></textarea>
+						<div class="composer-actions-right">
+							<button
+								id="start-voice"
+								class="voice-btn"
+								type="button"
+								title="Start voice mode"
+								aria-label="Start voice mode"
+								aria-pressed="false"
+							></button>
+						</div>
 					</div>
 					<div class="slide-indicator" id="slide-indicator">
 						<span class="slide-text">Slide →</span>

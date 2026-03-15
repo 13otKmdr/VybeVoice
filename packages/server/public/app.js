@@ -1,5 +1,6 @@
 const SAMPLE_RATE = 24_000;
 const MIC_WORKLET_PATH = "/mic-worklet.js";
+const DEFAULT_EQUALIZER_HEIGHTS = [8, 14, 10, 16];
 
 const state = {
 	sessionId: null,
@@ -28,12 +29,12 @@ const elements = {
 	model: document.querySelector("#model"),
 	provider: document.querySelector("#provider"),
 	sendText: document.querySelector("#send-text"),
-	sendIcon: document.querySelector("#send-text svg"),
 	sessionMeta: document.querySelector("#session-meta"),
 	settingsBtn: document.querySelector("#settings-btn"),
 	settingsCloseBtn: document.querySelector("#settings-close-btn"),
 	settingsOverlay: document.querySelector("#settings-overlay"),
 	startSession: document.querySelector("#start-session"),
+	startVoice: document.querySelector("#start-voice"),
 	statusCopy: document.querySelector("#status-copy"),
 	statusPill: document.querySelector("#status-pill"),
 	stopSession: document.querySelector("#stop-session"),
@@ -57,18 +58,28 @@ elements.userId.value = `browser-${Math.random().toString(36).slice(2, 8)}`;
 // ── Equalizer setup for voice mode ───────────────────────────────────────
 
 function createEqualizer() {
+	if (!elements.startVoice) return;
+
 	const equalizer = document.createElement("div");
 	equalizer.className = "equalizer";
 	
 	for (let i = 0; i < 4; i++) {
 		const bar = document.createElement("div");
 		bar.className = "eq-bar";
-		bar.style.height = "4px";
 		equalizer.appendChild(bar);
 	}
 	
-	elements.sendText.appendChild(equalizer);
+	elements.startVoice.appendChild(equalizer);
 	elements.equalizerBars = equalizer.querySelectorAll(".eq-bar");
+	setEqualizerHeights();
+}
+
+function setEqualizerHeights(heights = DEFAULT_EQUALIZER_HEIGHTS) {
+	if (!elements.equalizerBars) return;
+
+	elements.equalizerBars.forEach((bar, index) => {
+		bar.style.height = `${heights[index] ?? DEFAULT_EQUALIZER_HEIGHTS.at(-1) ?? 8}px`;
+	});
 }
 
 function startEqualizerAnimation() {
@@ -116,12 +127,7 @@ function stopEqualizerAnimation() {
 		state.animationFrameId = null;
 	}
 	
-	// Reset bar heights
-	if (elements.equalizerBars) {
-		elements.equalizerBars.forEach(bar => {
-			bar.style.height = "4px";
-		});
-	}
+	setEqualizerHeights();
 }
 
 // Create equalizer on load
@@ -358,6 +364,10 @@ elements.sendText.addEventListener("click", () => {
 	void sendTypedMessage();
 });
 
+elements.startVoice?.addEventListener("click", () => {
+	void activateVoiceMode();
+});
+
 // ── Slide-to-talk gesture ───────────────────────────────────────────────
 
 const SLIDE_THRESHOLD = 80; // pixels to trigger voice mode
@@ -455,7 +465,7 @@ function completeSlideGesture(point) {
 
 	if (crossedThreshold) {
 		markVoiceThresholdReached();
-		void activateVoiceModeFromGesture();
+		void activateVoiceMode();
 	} else if (isTap) {
 		void sendTypedMessage();
 	}
@@ -463,10 +473,10 @@ function completeSlideGesture(point) {
 	resetSlideGesture();
 }
 
-async function activateVoiceModeFromGesture() {
+async function activateVoiceMode() {
 	const provider = state.sessionId ? state.provider : elements.provider.value;
 
-	// Acquire the mic while the touch gesture is still active so browser voice mode can start reliably.
+	// Acquire the mic while the user gesture is still active so browser voice mode can start reliably.
 	if (provider === "openai" && !state.audioContext) {
 		try {
 			await ensureAudioPipeline();
@@ -1230,16 +1240,21 @@ function syncControls() {
 	const voiceActive = Boolean(state.audioContext);
 	const provider = connected ? state.provider : elements.provider.value;
 
-	// Send button state - enabled for text OR slide-to-talk
+	// Send button state - enabled for text and slide-to-talk
 	elements.sendText.disabled = false;
-	
-	// Update send button appearance when voice is active
-	if (voiceActive) {
-		elements.sendText.classList.add("voice-active");
-		elements.sendText.title = "Voice is active - slide to talk";
-	} else {
-		elements.sendText.classList.remove("voice-active");
-		elements.sendText.title = "Send message or slide for voice";
+	elements.sendText.title = voiceActive
+		? "Send message. Voice is already live."
+		: "Send message. Slide right for voice.";
+
+	if (elements.startVoice) {
+		elements.startVoice.disabled = false;
+		elements.startVoice.classList.toggle("voice-active", voiceActive);
+		elements.startVoice.setAttribute("aria-pressed", String(voiceActive));
+		elements.startVoice.title = voiceActive
+			? "Voice is active"
+			: provider === "openai"
+				? "Start voice mode"
+				: "Voice mode is unavailable for this provider in the browser";
 	}
 
 	elements.stopSession.disabled = !connected;
