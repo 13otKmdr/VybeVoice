@@ -1,4 +1,4 @@
-import { generateId, type DomainEvent, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
+import { type DomainEvent, generateId, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
 
 /**
  * OpenClaw gateway configuration
@@ -41,7 +41,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"Authorization": `Bearer ${OPENCLAW_TOKEN}`,
+					Authorization: `Bearer ${OPENCLAW_TOKEN}`,
 					"x-openclaw-agent-id": "main",
 				},
 				body: JSON.stringify({

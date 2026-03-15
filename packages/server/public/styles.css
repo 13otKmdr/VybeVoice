@@ -960,6 +960,11 @@ textarea {
 	display: none;
 }
 
+/* Ensure touch events pass through to button */
+.send-btn svg {
+	pointer-events: none;
+}
+
 .send-btn .eq-bar {
 	width: 3px;
 	background: #fff;
