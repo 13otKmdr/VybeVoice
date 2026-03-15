@@ -687,8 +687,37 @@ textarea {
 }
 
 .send-btn.voice-active {
-	background: #7C3AED;
-	animation: voice-pulse 2s ease-in-out infinite;
+	background: #A78BFA;
+	box-shadow: 0 0 16px rgba(167, 139, 250, 0.5);
+}
+
+/* Equalizer bars inside send button during voice mode */
+.send-btn .equalizer {
+	display: none;
+	position: absolute;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	height: 100%;
+	width: 100%;
+	top: 0;
+	left: 0;
+}
+
+.send-btn.voice-active .equalizer {
+	display: flex;
+}
+
+.send-btn.voice-active .send-icon {
+	display: none;
+}
+
+.send-btn .eq-bar {
+	width: 3px;
+	background: #fff;
+	border-radius: 2px;
+	transition: height 0.05s ease-out;
 }
 
 @keyframes voice-pulse {

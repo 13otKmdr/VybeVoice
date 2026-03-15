@@ -10,12 +10,14 @@ const state = {
 	micSource: null,
 	micNode: null,
 	silentGain: null,
+	analyser: null,
 	playbackCursor: 0,
 	activeSources: new Set(),
 	messages: [],
 	tasks: new Map(),
 	assistantDraftId: null,
 	recentMessages: new Map(),
+	animationFrameId: null,
 };
 
 const elements = {
@@ -25,6 +27,7 @@ const elements = {
 	model: document.querySelector("#model"),
 	provider: document.querySelector("#provider"),
 	sendText: document.querySelector("#send-text"),
+	sendIcon: document.querySelector("#send-text svg"),
 	sessionMeta: document.querySelector("#session-meta"),
 	startSession: document.querySelector("#start-session"),
 	statusCopy: document.querySelector("#status-copy"),
@@ -41,9 +44,83 @@ const elements = {
 	newChatBtn: document.querySelector("#new-chat-btn"),
 	composer: document.querySelector("#composer"),
 	slideIndicator: document.querySelector("#slide-indicator"),
+	equalizerBars: null, // Will be created dynamically
 };
 
 elements.userId.value = `browser-${Math.random().toString(36).slice(2, 8)}`;
+
+// ── Equalizer setup for voice mode ───────────────────────────────────────
+
+function createEqualizer() {
+	const equalizer = document.createElement("div");
+	equalizer.className = "equalizer";
+	
+	for (let i = 0; i < 4; i++) {
+		const bar = document.createElement("div");
+		bar.className = "eq-bar";
+		bar.style.height = "4px";
+		equalizer.appendChild(bar);
+	}
+	
+	elements.sendText.appendChild(equalizer);
+	elements.equalizerBars = equalizer.querySelectorAll(".eq-bar");
+}
+
+function startEqualizerAnimation() {
+	if (state.animationFrameId) return;
+	if (!state.analyser || !elements.equalizerBars) return;
+	
+	const analyser = state.analyser;
+	const dataArray = new Uint8Array(analyser.frequencyBinCount);
+	
+	function updateBars() {
+		if (!state.analyser) {
+			stopEqualizerAnimation();
+			return;
+		}
+		
+		analyser.getByteFrequencyData(dataArray);
+		
+		// Sample 4 frequency bands across the spectrum
+		const bandSize = Math.floor(dataArray.length / 4);
+		
+		elements.equalizerBars.forEach((bar, i) => {
+			// Average the values in this frequency band
+			let sum = 0;
+			const start = i * bandSize;
+			const end = start + bandSize;
+			for (let j = start; j < end; j++) {
+				sum += dataArray[j];
+			}
+			const average = sum / bandSize;
+			
+			// Map 0-255 to 4-20px height
+			const height = Math.max(4, (average / 255) * 20);
+			bar.style.height = `${height}px`;
+		});
+		
+		state.animationFrameId = requestAnimationFrame(updateBars);
+	}
+	
+	state.animationFrameId = requestAnimationFrame(updateBars);
+}
+
+function stopEqualizerAnimation() {
+	if (state.animationFrameId) {
+		cancelAnimationFrame(state.animationFrameId);
+		state.animationFrameId = null;
+	}
+	
+	// Reset bar heights
+	if (elements.equalizerBars) {
+		elements.equalizerBars.forEach(bar => {
+			bar.style.height = "4px";
+		});
+	}
+}
+
+// Create equalizer on load
+createEqualizer();
 
 // ── Sidebar toggle ──────────────────────────────────────────────────────
 
@@ -483,6 +560,11 @@ async function ensureAudioPipeline() {
 	const micNode = new AudioWorkletNode(audioContext, "mic-capture-processor");
 	const silentGain = audioContext.createGain();
 	silentGain.gain.value = 0;
+	
+	// Create analyser for equalizer visualization
+	const analyser = audioContext.createAnalyser();
+	analyser.fftSize = 64;
+	analyser.smoothingTimeConstant = 0.5;
 
 	micNode.port.onmessage = (event) => {
 		const samples = event.data;
@@ -493,6 +575,7 @@ async function ensureAudioPipeline() {
 	};
 
 	source.connect(micNode);
+	source.connect(analyser); // Connect analyser to source for visualization
 	micNode.connect(silentGain);
 	silentGain.connect(audioContext.destination);
 
@@ -501,13 +584,16 @@ async function ensureAudioPipeline() {
 	state.micSource = source;
 	state.micNode = micNode;
 	state.silentGain = silentGain;
+	state.analyser = analyser;
 	state.playbackCursor = audioContext.currentTime;
 
 	syncControls();
+	startEqualizerAnimation();
 }
 
 async function teardownSession(preserveSessionId) {
 	clearPlayback();
+	stopEqualizerAnimation();
 
 	if (state.socket) {
 		const socket = state.socket;
@@ -528,6 +614,11 @@ async function teardownSession(preserveSessionId) {
 	if (state.silentGain) {
 		try { state.silentGain.disconnect(); } catch {}
 		state.silentGain = null;
+	}
+
+	if (state.analyser) {
+		try { state.analyser.disconnect(); } catch {}
+		state.analyser = null;
 	}
 
 	if (state.mediaStream) {
