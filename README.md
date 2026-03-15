@@ -65,7 +65,28 @@ npm install
 npm run build
 ```
 
-### Run
+### Setup with CLI
+
+The easiest way to get started is with the interactive setup wizard:
+
+```bash
+npx vybevoice init
+```
+
+This walks you through:
+1. **Voice provider** — choose MiniMax or OpenAI, enter your API key
+2. **Agent backend** — choose OpenClaw (default), Claude Code, Codex, Pi Agent, or Custom
+3. **Server settings** — port and data directory
+
+Then start the server:
+
+```bash
+npx vybevoice start
+```
+
+### Manual Setup (env vars)
+
+You can also configure via environment variables (backward compatible):
 
 ```bash
 export MINIMAX_API_KEY=your_key_here
@@ -179,14 +200,46 @@ Transport abstraction and provider implementations.
 
 ### `@voice-orchestrator/server`
 
-HTTP server, orchestrator, and tools.
+HTTP server, orchestrator, CLI, and tools.
 
+- **`vybevoice` CLI** — interactive setup, configuration, and server management
 - **`MerlinOrchestrator`** — core event loop: turn tracking, barge-in, function call routing, task delegation
 - **`createHttpServer()`** — REST API with auto provider detection
 - **Browser console** — static client with continuous mic capture, streamed playback, transcript view, and task cards
 - **`DELEGATE_TASK_TOOL`** — function definition for the LLM to delegate tasks
+- **Pluggable backends** — OpenClaw, Claude Code, Codex, Pi Agent, Custom HTTP
+
+## CLI Reference
+
+```bash
+vybevoice init                  # Interactive setup wizard
+vybevoice start                 # Start the voice server
+vybevoice start --port 8080     # Start with port override
+vybevoice start --backend openclaw  # Override agent backend
+vybevoice configure show        # Display current config (keys masked)
+vybevoice configure voice       # Reconfigure voice provider
+vybevoice configure agent       # Reconfigure agent backend
+vybevoice configure server      # Reconfigure server settings
+vybevoice configure reset       # Delete configuration
+```
+
+Configuration is stored at `~/.vybevoice/config.json`. Settings resolve in order: CLI flags > environment variables > config file > defaults.
+
+## Agent Backends
+
+All backends implement the `SpecialistRunner` interface and are selected during `vybevoice init`.
+
+| Backend | Type | Description |
+|---------|------|-------------|
+| **OpenClaw** (default) | HTTP | Forwards tasks to OpenClaw gateway. Both projects are built on pi-agent. |
+| Claude Code | Subprocess | Spawns `claude -p` CLI for coding tasks |
+| Codex | Subprocess | Spawns OpenAI's `codex` CLI |
+| Pi Agent | HTTP | Posts to any pi-agent-compatible endpoint |
+| Custom | HTTP | Generic HTTP endpoint with configurable URL and headers |
 
 ## Environment Variables
+
+Environment variables override config file values and are fully backward compatible.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -194,6 +247,8 @@ HTTP server, orchestrator, and tools.
 | `OPENAI_API_KEY` | is required | — | OpenAI API key (fallback) |
 | `PORT` | No | `3000` | HTTP server port |
 | `DATA_DIR` | No | `./data` | Directory for file-backed stores |
+| `OPENCLAW_GATEWAY_URL` | No | `http://127.0.0.1:18789` | OpenClaw gateway URL |
+| `OPENCLAW_GATEWAY_TOKEN` | No | — | OpenClaw auth token |
 
 ## Development
 
@@ -214,6 +269,7 @@ npm start              # Run the server
 
 - [x] **Phase 1**: Core domain, stores, monorepo scaffolding
 - [x] **Phase 2**: Realtime hot path (orchestrator, transports, HTTP API)
+- [x] **Phase 2.5**: CLI with onboarding, pluggable agent backends (OpenClaw, Claude Code, Codex, Pi Agent, Custom)
 - [ ] **Phase 3**: Task delegation (TaskManager, BuilderSpecialist via pi-agent-core)
 - [ ] **Phase 4**: Memory & resilience (summaries, reconnection, retry)
 - [x] **Phase 5a**: Web UI (session socket bridge, task cards, transcript view)

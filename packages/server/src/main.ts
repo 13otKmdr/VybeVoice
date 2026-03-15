@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import {
 	FileArtifactStore,
 	FileEventLog,
@@ -31,13 +33,13 @@ export function createContext(dataDir: string): OrchestratorContext {
 	};
 }
 
-async function main(): Promise<void> {
+async function legacyMain(): Promise<void> {
 	const dataDir = resolve(process.env.DATA_DIR || "./data");
 	const port = Number.parseInt(process.env.PORT || "3000", 10);
 	const ctx = createContext(dataDir);
 
 	// Subscribe to all events for logging
-	ctx.eventLog.subscribe((event) => {
+	ctx.eventLog.subscribe((_event) => {
 		// console.log(`[event] ${event.type}`, JSON.stringify(event));
 	});
 
@@ -67,7 +69,22 @@ async function main(): Promise<void> {
 	console.log(`  OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "set" : "NOT SET"}`);
 }
 
-main().catch((err) => {
-	console.error("Fatal error:", err);
-	process.exit(1);
-});
+// ── Entry point: CLI or legacy ──────────────────────────────────────────────
+
+const hasSubcommand = process.argv.length > 2;
+
+if (hasSubcommand) {
+	// New CLI path
+	import("./cli/index.js")
+		.then(({ createProgram }) => createProgram().parseAsync(process.argv))
+		.catch((err) => {
+			console.error("Fatal error:", err);
+			process.exit(1);
+		});
+} else {
+	// Legacy path: env-var-only startup (backward compatible)
+	legacyMain().catch((err) => {
+		console.error("Fatal error:", err);
+		process.exit(1);
+	});
+}
