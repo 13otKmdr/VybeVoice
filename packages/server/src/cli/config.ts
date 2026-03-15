@@ -108,7 +108,7 @@ export async function saveConfig(config: VybeVoiceConfig): Promise<void> {
 
 export async function resolveConfig(overrides?: Partial<VybeVoiceConfig>): Promise<VybeVoiceConfig> {
 	const file = await loadConfig();
-	const base = file ?? { ...DEFAULT_CONFIG };
+const base = file ?? JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 	// Apply env var overrides
 	if (process.env.MINIMAX_API_KEY) {
