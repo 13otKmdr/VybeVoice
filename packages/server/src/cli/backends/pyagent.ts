@@ -1,37 +1,22 @@
 import { type DomainEvent, generateId, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
+import type { BackendOptions, PyAgentOptions } from "../config.js";
 
 /**
- * OpenClaw gateway configuration defaults (env vars used when no constructor params given)
+ * Pi Agent specialist — HTTP POST to a pi-agent-compatible endpoint.
  */
-const DEFAULT_OPENCLAW_URL = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
-const DEFAULT_OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "";
-
-export interface MerlinSpecialistOptions {
-	url?: string;
-	token?: string;
-	agentId?: string;
-}
-
-/**
- * Merlin specialist - forwards tasks to OpenClaw's main agent (Merlin).
- * This connects the voice orchestrator to the full OpenClaw execution layer.
- */
-export class MerlinSpecialist implements SpecialistRunner {
-	readonly kind = "merlin";
+class PyAgentSpecialist implements SpecialistRunner {
+	readonly kind = "pyagent";
 
 	private readonly url: string;
 	private readonly token: string;
-	private readonly agentId: string;
 	private abortControllers = new Map<string, AbortController>();
 
-	constructor(options?: MerlinSpecialistOptions) {
-		this.url = options?.url ?? DEFAULT_OPENCLAW_URL;
-		this.token = options?.token ?? DEFAULT_OPENCLAW_TOKEN;
-		this.agentId = options?.agentId ?? "main";
+	constructor(options: PyAgentOptions) {
+		this.url = options.url;
+		this.token = options.token;
 	}
 
 	canHandle(_task: TaskRecord): boolean {
-		// Merlin is the generalist - handles all task types
 		return true;
 	}
 
@@ -40,13 +25,11 @@ export class MerlinSpecialist implements SpecialistRunner {
 		this.abortControllers.set(task.id, controller);
 		signal.addEventListener("abort", () => controller.abort());
 
-		const now = Date.now();
-
 		yield {
 			type: "task.status_changed",
 			taskId: task.id,
 			eventId: generateId("evt"),
-			timestamp: now,
+			timestamp: Date.now(),
 			previousStatus: "queued",
 			newStatus: "running",
 		};
@@ -56,17 +39,10 @@ export class MerlinSpecialist implements SpecialistRunner {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: `Bearer ${this.token}`,
-					"x-openclaw-agent-id": this.agentId,
+					...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
 				},
 				body: JSON.stringify({
-					model: `openclaw:${this.agentId}`,
-					messages: [
-						{
-							role: "user",
-							content: `[Voice Task - ${task.kind}]\n${task.intent}`,
-						},
-					],
+					messages: [{ role: "user", content: `[Voice Task - ${task.kind}]\n${task.intent}` }],
 					stream: false,
 				}),
 				signal: controller.signal,
@@ -74,7 +50,7 @@ export class MerlinSpecialist implements SpecialistRunner {
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(`OpenClaw error: ${response.status} - ${errorText}`);
+				throw new Error(`Pi Agent error: ${response.status} - ${errorText}`);
 			}
 
 			const data = (await response.json()) as {
@@ -92,8 +68,8 @@ export class MerlinSpecialist implements SpecialistRunner {
 					artifactIds: [],
 				},
 			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
 
 			if (message.includes("abort")) {
 				yield {
@@ -120,8 +96,10 @@ export class MerlinSpecialist implements SpecialistRunner {
 
 	cancel(taskId: string): void {
 		const controller = this.abortControllers.get(taskId);
-		if (controller) {
-			controller.abort();
-		}
+		if (controller) controller.abort();
 	}
+}
+
+export function createPyAgentSpecialist(options: BackendOptions): SpecialistRunner {
+	return new PyAgentSpecialist(options as PyAgentOptions);
 }

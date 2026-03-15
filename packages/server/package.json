@@ -6,7 +6,7 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"bin": {
-		"voice-orchestrator": "./dist/main.js"
+		"vybevoice": "./dist/main.js"
 	},
 	"scripts": {
 		"clean": "rm -rf dist",
@@ -15,8 +15,12 @@
 		"start": "node dist/main.js"
 	},
 	"dependencies": {
+		"@inquirer/prompts": "^8.3.0",
 		"@voice-orchestrator/core": "*",
 		"@voice-orchestrator/realtime": "*",
+		"commander": "^14.0.3",
+		"ora": "^9.3.0",
+		"picocolors": "^1.1.1",
 		"ws": "^8.18.0"
 	},
 	"devDependencies": {

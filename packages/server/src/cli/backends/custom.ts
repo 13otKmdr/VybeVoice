@@ -1,37 +1,24 @@
 import { type DomainEvent, generateId, type SpecialistRunner, type TaskRecord } from "@voice-orchestrator/core";
+import type { BackendOptions, CustomOptions } from "../config.js";
 
 /**
- * OpenClaw gateway configuration defaults (env vars used when no constructor params given)
+ * Custom HTTP specialist — POSTs to a user-configured endpoint.
  */
-const DEFAULT_OPENCLAW_URL = process.env.OPENCLAW_GATEWAY_URL || "http://127.0.0.1:18789";
-const DEFAULT_OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "";
-
-export interface MerlinSpecialistOptions {
-	url?: string;
-	token?: string;
-	agentId?: string;
-}
-
-/**
- * Merlin specialist - forwards tasks to OpenClaw's main agent (Merlin).
- * This connects the voice orchestrator to the full OpenClaw execution layer.
- */
-export class MerlinSpecialist implements SpecialistRunner {
-	readonly kind = "merlin";
+class CustomSpecialist implements SpecialistRunner {
+	readonly kind = "custom";
 
 	private readonly url: string;
-	private readonly token: string;
-	private readonly agentId: string;
+	private readonly authHeader?: string;
+	private readonly extraHeaders: Record<string, string>;
 	private abortControllers = new Map<string, AbortController>();
 
-	constructor(options?: MerlinSpecialistOptions) {
-		this.url = options?.url ?? DEFAULT_OPENCLAW_URL;
-		this.token = options?.token ?? DEFAULT_OPENCLAW_TOKEN;
-		this.agentId = options?.agentId ?? "main";
+	constructor(options: CustomOptions) {
+		this.url = options.url;
+		this.authHeader = options.authHeader;
+		this.extraHeaders = options.headers ?? {};
 	}
 
 	canHandle(_task: TaskRecord): boolean {
-		// Merlin is the generalist - handles all task types
 		return true;
 	}
 
@@ -40,47 +27,45 @@ export class MerlinSpecialist implements SpecialistRunner {
 		this.abortControllers.set(task.id, controller);
 		signal.addEventListener("abort", () => controller.abort());
 
-		const now = Date.now();
-
 		yield {
 			type: "task.status_changed",
 			taskId: task.id,
 			eventId: generateId("evt"),
-			timestamp: now,
+			timestamp: Date.now(),
 			previousStatus: "queued",
 			newStatus: "running",
 		};
 
 		try {
-			const response = await fetch(`${this.url}/v1/chat/completions`, {
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+				...this.extraHeaders,
+			};
+			if (this.authHeader) {
+				headers.Authorization = this.authHeader;
+			}
+
+			const response = await fetch(this.url, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${this.token}`,
-					"x-openclaw-agent-id": this.agentId,
-				},
+				headers,
 				body: JSON.stringify({
-					model: `openclaw:${this.agentId}`,
-					messages: [
-						{
-							role: "user",
-							content: `[Voice Task - ${task.kind}]\n${task.intent}`,
-						},
-					],
-					stream: false,
+					prompt: `[Voice Task - ${task.kind}]\n${task.intent}`,
+					taskId: task.id,
 				}),
 				signal: controller.signal,
 			});
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(`OpenClaw error: ${response.status} - ${errorText}`);
+				throw new Error(`Custom backend error: ${response.status} - ${errorText}`);
 			}
 
 			const data = (await response.json()) as {
+				result?: string;
 				choices?: Array<{ message?: { content?: string } }>;
 			};
-			const result = data.choices?.[0]?.message?.content || "Task completed";
+			// Support both { result } and OpenAI-compatible { choices } response shapes
+			const result = data.result || data.choices?.[0]?.message?.content || "Task completed";
 
 			yield {
 				type: "task.completed",
@@ -92,8 +77,8 @@ export class MerlinSpecialist implements SpecialistRunner {
 					artifactIds: [],
 				},
 			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
 
 			if (message.includes("abort")) {
 				yield {
@@ -120,8 +105,10 @@ export class MerlinSpecialist implements SpecialistRunner {
 
 	cancel(taskId: string): void {
 		const controller = this.abortControllers.get(taskId);
-		if (controller) {
-			controller.abort();
-		}
+		if (controller) controller.abort();
 	}
+}
+
+export function createCustomSpecialist(options: BackendOptions): SpecialistRunner {
+	return new CustomSpecialist(options as CustomOptions);
 }
