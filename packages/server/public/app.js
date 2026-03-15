@@ -232,6 +232,7 @@ elements.sendText.addEventListener("click", () => {
 // ── Slide-to-talk gesture ───────────────────────────────────────────────
 
 const SLIDE_THRESHOLD = 80; // pixels to trigger voice mode
+const TAP_THRESHOLD = 20;
 const slideState = {
 	isSliding: false,
 	startX: 0,
@@ -241,6 +242,50 @@ const slideState = {
 	originalTransform: "",
 	tapHandled: false, // Prevent click event from double-firing after touch
 };
+
+function getSlideMetrics(touch) {
+	const deltaX = touch.clientX - slideState.startX;
+	const deltaY = touch.clientY - slideState.startY;
+	const horizontalGesture = Math.abs(deltaY) <= Math.abs(deltaX) * 1.5;
+
+	return { deltaX, deltaY, horizontalGesture };
+}
+
+function markVoiceThresholdReached() {
+	if (slideState.triggered) return;
+
+	slideState.triggered = true;
+	elements.sendText.classList.add("voice-triggered");
+
+	if (navigator.vibrate) {
+		navigator.vibrate(50);
+	}
+}
+
+function resetSlideGesture() {
+	slideState.isSliding = false;
+	slideState.triggered = false;
+
+	elements.sendText.classList.remove("sliding", "voice-triggered");
+	elements.sendText.style.transform = slideState.originalTransform;
+	elements.slideIndicator.classList.remove("visible");
+	elements.slideIndicator.style.opacity = "";
+}
+
+async function activateVoiceModeFromGesture() {
+	const provider = state.sessionId ? state.provider : elements.provider.value;
+
+	// Acquire the mic while the touch gesture is still active so browser voice mode can start reliably.
+	if (provider === "openai" && !state.audioContext) {
+		try {
+			await ensureAudioPipeline();
+		} catch (error) {
+			console.warn("Microphone unavailable; voice activation may fail.", error);
+		}
+	}
+
+	await startSession({ activateVoice: true });
+}
 
 elements.sendText.addEventListener("touchstart", (event) => {
 	if (elements.sendText.disabled) return;
@@ -252,6 +297,7 @@ elements.sendText.addEventListener("touchstart", (event) => {
 	slideState.currentX = touch.clientX;
 	slideState.triggered = false;
 	slideState.originalTransform = elements.sendText.style.transform || "";
+	slideState.tapHandled = false;
 	
 	elements.sendText.classList.add("sliding");
 	elements.slideIndicator.classList.add("visible");
@@ -261,11 +307,10 @@ elements.sendText.addEventListener("touchmove", (event) => {
 	if (!slideState.isSliding) return;
 	
 	const touch = event.touches[0];
-	const deltaX = touch.clientX - slideState.startX;
-	const deltaY = touch.clientY - slideState.startY;
+	const { deltaX, deltaY, horizontalGesture } = getSlideMetrics(touch);
 	
 	// If vertical movement is dominant, cancel slide
-	if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+	if (!horizontalGesture) {
 		return;
 	}
 	
@@ -288,50 +333,37 @@ elements.sendText.addEventListener("touchmove", (event) => {
 	elements.slideIndicator.style.opacity = progress;
 	
 	// Check if threshold reached
-	if (deltaX >= SLIDE_THRESHOLD && !slideState.triggered) {
-		slideState.triggered = true;
-		elements.sendText.classList.add("voice-triggered");
-		
-		// Vibrate for feedback if available
-		if (navigator.vibrate) {
-			navigator.vibrate(50);
-		}
+	if (deltaX >= SLIDE_THRESHOLD) {
+		markVoiceThresholdReached();
 	}
 }, { passive: false });
 
 elements.sendText.addEventListener("touchend", (event) => {
 	if (!slideState.isSliding) return;
 	
-	const deltaX = slideState.currentX - slideState.startX;
+	const touch = event.changedTouches[0];
+	const { deltaX, deltaY, horizontalGesture } = touch
+		? getSlideMetrics(touch)
+		: { deltaX: slideState.currentX - slideState.startX, deltaY: 0, horizontalGesture: true };
+	const crossedThreshold = horizontalGesture && deltaX >= SLIDE_THRESHOLD;
+	const isTap = Math.abs(deltaX) < TAP_THRESHOLD && Math.abs(deltaY) < TAP_THRESHOLD;
 	
-	if (slideState.triggered && deltaX >= SLIDE_THRESHOLD) {
-		// Trigger voice mode
-		void startSession({ activateVoice: true });
-	} else if (deltaX < 20 && !slideState.triggered) {
+	slideState.tapHandled = crossedThreshold || isTap;
+
+	if (crossedThreshold) {
+		markVoiceThresholdReached();
+		void activateVoiceModeFromGesture();
+	} else if (isTap) {
 		// It was a tap, send message if there's text
-		slideState.tapHandled = true;
 		void sendTypedMessage();
 	}
 	
-	// Reset state
-	slideState.isSliding = false;
-	slideState.triggered = false;
-	
-	elements.sendText.classList.remove("sliding", "voice-triggered");
-	elements.sendText.style.transform = slideState.originalTransform;
-	elements.slideIndicator.classList.remove("visible");
-	elements.slideIndicator.style.opacity = "";
+	resetSlideGesture();
 });
 
 elements.sendText.addEventListener("touchcancel", () => {
-	slideState.isSliding = false;
-	slideState.triggered = false;
 	slideState.tapHandled = false;
-	
-	elements.sendText.classList.remove("sliding", "voice-triggered");
-	elements.sendText.style.transform = slideState.originalTransform;
-	elements.slideIndicator.classList.remove("visible");
-	elements.slideIndicator.style.opacity = "";
+	resetSlideGesture();
 });
 
 elements.textMessage.addEventListener("keydown", (event) => {
